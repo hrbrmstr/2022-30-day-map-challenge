@@ -1,0 +1,26 @@
+---
+title: '2022 30-day Map Challenge • Day 17 • A Map Without A Computer • 🧝🏽‍♀️ Middle Earthcadia'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-17-a-map-without-a-computer-midd'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 17 • A Map Without A Computer • 🧝🏽‍♀️ Middle Earthcadia`
+```
+
+```{ojs}
+md`A few years ago, I went **ABSOLUTELY GAGA** over Dan Bell's [Middle Earth-style Maps of Modern Places](https://www.maproomblog.com/2018/09/maps-middle-earth-style-by-hand-and-by-arcgis/).
+
+#2 noticed this (I mean, folks on Tycho Station likely couldn't help but notice), and managed to surprise me with one of the most amazing birthday presents ever: a series of her own take on these hand-drawn maps, but of DownEast Maine and Acadia National Park — my favourite spot on this planet of ours. It took her just under nine months to finish the entire set.
+
+So, while this is not something I drew, it's way better than anything these busted mitts of mine could ever produce on their own.
+
+Extra points (perhaps, even some Maine swag) if you can drop a comment with what part of Acadia this is.`
+```
+
+```{ojs}
+img_12221 = FileAttachment("IMG_1222.jpg").image()
+```
+

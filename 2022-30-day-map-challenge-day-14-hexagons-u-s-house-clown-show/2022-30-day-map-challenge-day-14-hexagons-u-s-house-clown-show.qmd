@@ -1,0 +1,267 @@
+---
+title: '2022 30-day Map Challenge • Day 14 • Hexagons • ⬢⬢ U.S. House Clown Show'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-14-hexagons-u-s-house-clown-show'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 14 • Hexagons • <span style="color:#d53e4f">⬢</span><span style="color:#3288bd">⬢</span> U.S. House Clown Show`
+```
+
+```{ojs}
+md`You might have noticed we, here in The Colonies, recently had a clown show of an election, resulting in a bunch more of said clowns getting into office to grift off of the American populace.
+
+The NYTimes gleefully participated in the unhelpful horse race election cycle reporting and has a liberal [CORS](https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS) policy on the JSON that feeds [their coverage site](https://www.nytimes.com/interactive/2022/11/08/us/elections/results-house.html). The URL (which I've highlighted) is in this `<script>` tag which holds JSON vs JavaScript:`
+```
+
+```{ojs}
+markLines(match_text, [18], { language: "html", span: true })
+```
+
+```{ojs}
+md`It's a bit out of date (so, this choropleth is, presently, incomplete), so I'll keep an eye out for when it changes.
+
+I don't like the Times' choropleth for this race, but I _do_ like the one [538 used](https://projects.fivethirtyeight.com/republicans-trump-election-fraud/)  in their feature on the disgusting, seditious GOP members who were either evil (i.e denied the 2020 POTUS election results), or cowards (i.e. refused to answer that question).
+
+I [absconded with that choropleth](https://github.com/hrbrmstr/538-house-map), and today's entry is an unholy marriage of the Times' data with 538's map.
+
+Nothing fancy (i.e. no tooltips) since I'm already super-behind, but this notebook does demonstrate:
+
+- `import`ing from other notebooks
+- javascript data wrangling
+- reading in data from a URL
+- styling element with a mix of d3 scales and CSS
+
+For good, clown measure, we're using Comic Mono for the labels.`
+```
+
+```{ojs}
+house_choro = {
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", `0 0 700 525`)
+    .attr("width", 700)
+    .attr("height", 525);
+
+  const base_map = svg.append("g");
+
+  base_map
+    .append("g")
+    .attr("class", "state-outline")
+    .selectAll("path")
+    .data(house_carto.outlines)
+    .enter()
+    .append("path")
+    .attr("id", (d) => d.state)
+    .attr("d", (t) => t.d)
+    .attr("transform", (t) =>
+      "translate(".concat(t.translate[0], ", ").concat(t.translate[1], ")")
+    )
+    .lower();
+
+  const tiles = svg.append("g");
+
+  const scale = 5;
+
+  tiles
+    .append("g")
+    .attr("class", "map")
+    .attr(
+      "transform",
+      "scale("
+        .concat(scale, ")translate(")
+        .concat(24 * scale, ",")
+        .concat(10 * scale, ")")
+    );
+
+  tiles
+    .append("g")
+    .attr("class", "district")
+    .selectAll("path")
+    .data(house_carto.districts)
+    .enter()
+    .append("path")
+    .attr("d", (t) =>
+      "M".concat(t.points.map((t) => t.join(" ")).join("L"), "Z")
+    )
+    .attr("fill", (d) =>
+      party(
+        results[d.race] === undefined ? "MISSING" : results[d.race].party.nyt_id
+      )
+    )
+    .attr("fill-opacity", 1);
+
+  const labels = svg.append("g");
+
+  labels
+    .selectAll("g.labels")
+    .data(["bg", "fg"])
+    .enter()
+    .append("g")
+    .attr("class", (t) => "labels ".concat(t))
+    .selectAll("text")
+    .data(house_carto.labels)
+    .enter()
+    .append("text")
+    .attr("transform", (t, e) =>
+      "translate(".concat(t.x, ", ").concat(t.y, ")")
+    )
+    .text((t, e) => t.state);
+
+  return svg.node();
+}
+```
+
+```{ojs}
+party = d3.scaleOrdinal(
+  ["GOP", "DEM", "MISSING"],
+  ["#d53e4f", "#3288bd", "#e0e0e0"]
+)
+```
+
+```{ojs}
+results = house.races
+  .map((d) => ({
+    race:
+      d.top_reporting_unit.state_postal + "-" + d.seat.replace("District ", ""),
+    who: d.candidate_metadata[d.outcome.won[0]]
+  }))
+  .filter((d) => !(d.who === undefined))
+  .reduce((m, d) => {
+    m[d.race] = d.who;
+    return m;
+  }, {})
+```
+
+```{ojs}
+house = d3.json(
+  `https://static01.nyt.com/elections-assets/2022/data/2022-11-08/results-house.json`
+)
+```
+
+```{ojs}
+import { house_carto } from "@hrbrmstr/chance-gop-takes-house-seat-in-november"
+```
+
+```{ojs}
+import { markLines } from "@mootari/highlight"
+```
+
+```{ojs}
+match_text = `<script data-target="__ELECTION-PAGES__SSR" data-path="/standalone/2022-11-08/general-national-map-page/results-house.publisher" type="text/plain">
+{
+  "path": "/standalone/2022-11-08/general-national-map-page/results-house.publisher",
+   "context":
+   {
+     "render": "server",
+     "target": "#standalone-2022-11-08-general-national-map-page-results-house",
+     "url": "/standalone/2022-11-08/general-national-map-page/results-house.publisher",
+     "page":
+     {
+       "assetType": "standalone",
+       "electionDate": "2022-11-08",
+       "template": "general-national-map-page",
+       "slug": "results-house",
+       "entryPoint": "publisher",
+       "office": "U.S. House",
+       "isPreview": false
+     },
+     "api": "https://static01.nyt.com/elections-assets/2022/data/2022-11-08/results-house.json",
+     "stateNavApiUrl": "https://static01.nyt.com/elections-assets/2022/data/state-page-navigation.json",
+     "screenshotsBaseUrl": "https://static01.nyt.com/elections-assets/2022/screenshots/",
+     "entryPoint": "publisher",
+     "isPreview": false
+  }
+}`
+```
+
+```{ojs}
+css = html`
+<style>
+@font-face {
+  font-family: Comic Mono;
+  font-weight: normal;
+  src: url(https://cdn.jsdelivr.net/npm/comic-mono@0.0.1/ComicMono.ttf);
+}
+
+@font-face {
+  font-family: Comic Mono;
+  font-weight: bold;
+  src: url(https://cdn.jsdelivr.net/npm/comic-mono@0.0.1/ComicMono-Bold.ttf);
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: "Comic Mono", monospace;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+h1 { 
+  max-width: none; 
+  font-weight: bold;
+}
+
+.state-outline {
+  fill: white;
+  stroke: #c3c3c3;
+  stroke-width: 0.25;
+}
+
+.state-outline.dark {
+  fill: white;
+  stroke: black;
+  stroke-width: 3;
+}
+
+.district {
+  fill: white;
+  stroke: #c3c3c3;
+  stroke-width: 0.25;
+}
+
+.district.outline {
+  fill: white;
+  stroke: black;
+  stroke-width: 3;
+}
+
+
+path {
+  stroke-width: 0.25;
+  stroke: #c3c3c3;
+}
+g.labels {
+  pointer-events: none
+}
+
+g.labels text {
+  font-family: "Comic Mono", monospace;
+  font-size: 15px
+}
+
+@media (max-width: 767px) {
+  g.labels text {
+    font-size: 18px
+  }
+}
+
+g.labels.bg text {
+  stroke-width: 4;
+  stroke: #fff;
+  fill: #fff
+}
+
+g.labels.fg text {
+  stroke: none;
+  fill: #222
+}
+</style>`
+```
+

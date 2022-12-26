@@ -1,0 +1,214 @@
+---
+title: '2022 30-day Map Challenge • Day 05 •🇺🇦 (Refugees)'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-05'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 05 •<br/>🇺🇦 (Refugees)`
+```
+
+```{ojs}
+md`[UNHCR is concerned about the crisis situation in Ukraine](https://www.unrefugees.org/emergencies/ukraine/) that escalated on February 24, 2022 following the Russian Federation’s military action in the country. The crisis has displaced 6.6 million people inside the country. Over 6.3 million people from Ukraine have crossed into neighboring countries in the region including Poland, Hungary, Moldova and others. 
+
+The map data below was retrieved from the [UNHCR's Ukraine Refugee Data Portal](https://data.unhcr.org/en/situations/ukraine) on 2022-11-05, and the map focuses on Ukraine nearby neighboring countries.
+
+Fill color indicates the number of refugees taken in.
+
+Hover/tap on country to see country name and refugee count.`
+```
+
+```{ojs}
+Legend(ukr_blue, {
+  title: "🇺🇦 Refugees Taken In By Country",
+  width: 600
+})
+```
+
+```{ojs}
+refugee_map = {
+  const container = html`<div class="tooltip-carto"></div>`;
+
+  // and add it to the DOM
+  const div = d3.select(container).append("div").classed("tooltip", true);
+
+  // now we tell the Tooltip which container to use
+  const tooltip = new Tooltip(div);
+
+  // this is just a handy idiom to use vs build the HTML inline in the js below
+  function tooltipContents(p) {
+    if (p.name == "Ukraine") {
+      return "<span class='ukr'>Слава Україні!</span>";
+    } else if (ref_names.includes(p.name)) {
+      return `<b>${p.name}</b> has taken in <br/>${d3.format(",")(
+        ref_map[p.name]
+      )} refugees from 🇺🇦`;
+    } else {
+      return "No official refugees taken on record";
+    }
+  }
+
+  const svg = d3
+    .select(container)
+    .append("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("border", "1px solid white")
+    .style("width", width)
+    .style("height", height);
+
+  svg
+    .append("g")
+    .append("path")
+    .datum(graticule)
+    .attr("d", path)
+    .attr("stroke", "#c3c3c3")
+    .attr("stroke-width", "0.5px")
+    .attr("stroke-dasharray", "1,2")
+    .attr("fill", "none");
+
+  var refugee_countries = svg.append("g").selectAll(".countries").data(eurasia);
+
+  // we paint the white paths with a random-ish blue fill;
+  refugee_countries
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "white")
+    .style("stroke-width", "1px")
+    .style("fill", (d) => {
+      if (d.properties.name == "Ukraine") return "#FFD700";
+      const res = ref_map[d.properties.name];
+      return res === undefined ? "#f3f3f3" : ukr_blue(res);
+    })
+    .on("mouseover", (e, d) => {
+      tooltip.display(d.properties, tooltipContents);
+    })
+    .on("mouseout", (e, d) => {
+      tooltip.hide();
+    })
+    .on("mousemove", (e, d) => {
+      tooltip.move(e);
+    });
+
+  return container;
+}
+```
+
+```{ojs}
+height = 500
+```
+
+```{ojs}
+md`Get the refugee data into various useful formats.`
+```
+
+```{ojs}
+ref_names = ukraineRefugees.map((d) => d.country_name)
+```
+
+```{ojs}
+ref_map = ukraineRefugees.reduce(
+  (d, o) => ((d[o.country_name] = o.refugees), d),
+  {}
+)
+```
+
+```{ojs}
+md`Ukraine <span style='background-color:#2356b2; color:white; font-family:Fira Code'>&nbsp;blue&nbsp;</span> scale.`
+```
+
+```{ojs}
+ukr_blue = d3
+  .scaleLinear()
+  .domain(d3.extent(ukraineRefugees.map((d) => d.refugees)))
+  .range(["#d5e1f0", "#2356b2"])
+  .interpolate(d3.interpolateHcl)
+```
+
+```{ojs}
+md`Refugee data excruciatingly extracted from UNHCR's portal.`
+```
+
+```{ojs}
+ukraineRefugees = FileAttachment("ukraine-refugees.json").json()
+```
+
+```{ojs}
+md`This lets us use the projection to draw the paths.`
+```
+
+```{ojs}
+path = d3.geoPath(lambertAzimuthalEqualArea)
+```
+
+```{ojs}
+md`We have the entire globe, and we need a better projection than Mercator (😒) so we pick a good one, rotate the globe til we get to the ~EU, and then zoom in enough to focus on the area we want to highlight.
+
+You can't break anything if you play with the values to see what they do. Just revert wonky changes back to the original.`
+```
+
+```{ojs}
+lambertAzimuthalEqualArea = d3
+  .geoAzimuthalEqualArea()
+  .rotate([-20.0, -52.0])
+  .translate([width / 2, height / 2])
+  .scale(700)
+  .precision(0.1)
+```
+
+```{ojs}
+eurasia = topojson.feature(countries, countries.objects.countries).features
+```
+
+```{ojs}
+countries = FileAttachment("countries-110m.json").json()
+```
+
+```{ojs}
+import { graticule } with { projection } from "@d3/world-map"
+```
+
+```{ojs}
+d3 = require("d3@7", "d3-geo@3", "d3-geo-projection@4")
+```
+
+```{ojs}
+import { Legend } from "@d3/color-legend"
+```
+
+```{ojs}
+import { Tooltip } from "@clhenrick/tooltip-component"
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+.ukr {
+  font-size: 32pt;
+  font-face: bold;
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

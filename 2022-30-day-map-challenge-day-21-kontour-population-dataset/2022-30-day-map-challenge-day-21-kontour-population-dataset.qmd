@@ -1,0 +1,171 @@
+---
+title: '2022 30-day Map Challenge • Day 21 • 👨‍👩‍👧‍👦 Kontour Population Dataset'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-21-kontour-population-dataset'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 21 •<br/> 👨‍👩‍👧‍👦 Kontour Population Dataset`
+```
+
+```{ojs}
+md`[Kontur](https://www.kontur.io/about/) is a geospatial data and real-time risk management solutions provider for humanitarian, private, and governmental organizations.
+
+I've never worked with this dataset before and boy it's yuge.
+
+I also forgot that the each `population` feature is an [H3](https://h3geo.org/) hex, so I burnt all my free time sort of for nada.
+
+There's R code at the end that pulls all H3 "grid" locations with between 1,000 and 10,000 population. This was intended to show viable "small" towns in the ConUS that are close to the population size where I live. It doesn't really show that though, but this notebook _does_ show:
+
+- point size and color scaling based on population
+- filtering out features from a geo object
+- using SQL (in R `{sf}`) to narrow down the reading from this giant geopkg`
+```
+
+```{ojs}
+pop = {
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width, height * 0.9])
+    .style("width", width)
+    .style("height", height);
+
+  var states = svg.append("g").selectAll(".states").data(conus_states);
+
+  states
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "#b2b2b2")
+    .style("stroke-width", "0.35px")
+    .style("fill", "#00000000");
+
+  var polys = svg.append("g").selectAll(".h3").data(conus);
+
+  polys
+    .enter()
+    .append("circle")
+    .attr("cx", (d) => d.lng)
+    .attr("cy", (d) => d.lat)
+    .attr("r", (d) => pt_scale(d.pop))
+    .attr("fill", (d) => popScale(d.pop));
+
+  return svg.node();
+}
+```
+
+```{ojs}
+popScale = d3.scaleSequentialSqrt(d3.extent([1000, 10000]), d3.interpolateMagma)
+```
+
+```{ojs}
+pt_scale = d3.scaleLinear().domain([1000, 10000]).range([0.25, 1]) // TWEAK THIS RANGE AND SEE WHAT IT DOES
+```
+
+```{ojs}
+conus = pop1k10kCentroidsConus.features
+  .filter((d) => {
+    const lng = d.geometry.coordinates[0];
+    const lat = d.geometry.coordinates[1];
+    return projection([lng, lat]) != null;
+  })
+  .map((d) => {
+    const lng = d.geometry.coordinates[0];
+    const lat = d.geometry.coordinates[1];
+    const p = projection([lng, lat]);
+    return {
+      pop: d.properties.population,
+      lng: p[0],
+      lat: p[1]
+    };
+  })
+```
+
+```{ojs}
+conus_states = {
+  let shp = us_states;
+  shp = shp.filter((d) => !["Alaska", "Hawaii"].includes(d.properties.name));
+  return shp;
+}
+```
+
+```{ojs}
+pop1k10kCentroidsConus = FileAttachment("pop1k-10k-centroids-conus@1.geojson").json()
+```
+
+```{ojs}
+projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+```
+
+```{ojs}
+height = width / 1.5
+```
+
+```{ojs}
+import {
+  path,
+  us_states
+} from "@hrbrmstr/2022-30-day-map-challenge-day-02-lines-of-sedition"
+```
+
+```{ojs}
+md````r
+library(sf)
+library(dplyr)
+
+st_layers("~/Downloads/kontur_population_20220630.gpkg")
+## Some questions for the experiment design:
+## 
+## Driver: GPKG 
+## Available layers:
+##   layer_name geometry_type features fields
+## 1 population               32589553      2
+
+# Go build a house
+st_read(
+  dsn = "~/Downloads/kontur_population_20220630.gpkg", 
+  query = "SELECT * FROM population WHERE population < 10000"
+) -> pop10k
+
+# ^^ is still too big
+pop10k_us |> 
+  filter(
+    between(population, 1000, 10000)
+  ) -> pop1k_10k_us
+
+# rly just need centroids since we're not playing with the hexes
+centers <- st_centroid(pop1k_10k_us)
+
+# easy to find this file online
+st_read("~/Downloads/gz_2010_us_040_00_20m.json") |> 
+  us |> 
+  filter(
+    !(NAME %in% c("Alaska", "Hawaii"))
+  ) |> 
+  st_make_valid() |> 
+  st_transform(
+    crs = st_crs(pop10k)
+  ) -> conus
+
+# just what's in conus
+centers |> 
+  st_intersection(conus) |> 
+  st_transform(crs = 4326) -> ctrs
+  st_write(ctrs, "~/Data/pop1k-10k-centroids-conus.geojson")
+````
+```
+
+```{ojs}
+html`
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+font-family: "Fira Code", monospace;
+}
+</style>
+`
+```
+

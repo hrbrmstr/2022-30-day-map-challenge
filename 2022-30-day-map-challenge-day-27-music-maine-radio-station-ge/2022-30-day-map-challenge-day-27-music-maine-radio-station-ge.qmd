@@ -1,0 +1,435 @@
+---
+title: '2022 30-day Map Challenge • Day 27 • 🎶 Music • LIVE! Maine Radio Station Genres 🔊'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-27-music-maine-radio-station-ge'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 27 • 🎶 Music • LIVE! Maine Radio Station Genres 🔊`
+```
+
+```{ojs}
+md`Music 🎵 surrounds us in most populated areas of the 🇺🇸. That doesn't necessarily mean that music is _playing_ in the room/area you are in right now, but invisible radio waves are carrying tunes of diverse genres throughout your house/apartment/bungalow nearly 24/7.
+
+The FCC keeps track of where stations are transmitting 📡 from along with the shape of their broadcast signal range. Other sites maintain sufficient metadata to join all these elements together, enabling us to make a "music map". _(Links to all sites are in the R code at the end of this notebook.)_
+
+The visualization, below, shows the transmission contours of individual radio stations in Maine that primarily play music of a single genre. I've cleaned up (simplified) the genres to make for a better color scale choice.
+
+Select individual genres to see what's being played in any given area. Note, once more, how isolated the northwest portions of Maine truly are.
+
+The player _works_! It took forever to find Maine stations that have AAC or MP3 streams, and the **URLs may break at any time**, _or take a few seconds to buffer_. 
+
+This notebook introduces some new D3 items:
+
+- gradient fills
+- path shape transitions (courtesy of [flubber](https://observablehq.com/@mbostock/hello-flubber))
+
+To see a view with all U.S. stations/towers (minus the precise outlines) head on over [to this sibling notebook](https://observablehq.com/@hrbrmstr/u-s-radio-station-coverage-areas).`
+```
+
+```{ojs}
+viewof selected_genre = Object.assign(
+  Inputs.select(["All"].concat(genres.map((d) => d.simple_genre)), {
+    label: "Choose genre"
+  }),
+  { style: "--label-width: 90px" }
+)
+```
+
+```{ojs}
+html`
+<div style="width:100%; display:flex; align-items:center;">
+<div style="display:inline-flex;"><audio controls loop crossorigin="anonymous" id="audio" src="${current_station_url}"></audio></div>
+<div style="display:inline-flex; padding-left:2%;font-size:9pt;">You must deliberately press "play" after each genre change b/c autoplay is evil.</div>
+</div>`
+```
+
+```{ojs}
+Swatches(scaleColorFill)
+```
+
+```{ojs}
+music_map = {
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("width", width)
+    .style("height", height);
+
+  // define the radial gradients for the station path fills
+  const stationGradients = svg
+    .append("defs")
+    .selectAll("radialGradient")
+    .data(genres.map((d) => d.simple_genre.replace(" ", "-")))
+    .enter()
+    .append("radialGradient")
+    .attr("gradientUnits", "objectBoundingBox")
+    .attr("cx", 0)
+    .attr("cy", 0)
+    .attr("r", "100%")
+    .attr("id", (d) => d);
+
+  stationGradients
+    .append("stop")
+    .attr("offset", "0%")
+    .style("stop-color", "white");
+
+  stationGradients
+    .append("stop")
+    .attr("offset", "100%")
+    .style("stop-color", (d) => scaleColorFill(d));
+
+  // top-to-bottom linear gradient for the panel backgrouns
+  const bgGradient = svg
+    .append("defs")
+    .append("linearGradient")
+    .attr("id", "back")
+    .attr("x1", "0%")
+    .attr("x2", "0%")
+    .attr("y1", "0%")
+    .attr("y2", "100%");
+
+  bgGradient
+    .append("stop")
+    .attr("offset", "0%")
+    .style("stop-color", "#386cb0")
+    .style("stop-opacity", 1);
+
+  bgGradient
+    .append("stop")
+    .attr("offset", "100%")
+    .style("stop-color", "white")
+    .style("stop-opacity", 1);
+
+  const panel = svg.append("g");
+
+  panel
+    .append("rect")
+    .attr("x", 0)
+    .attr("y", 0)
+    .attr("height", height)
+    .attr("width", width)
+    .attr("fill", "url(#back)");
+
+  const counties = svg.append("g");
+
+  counties
+    .selectAll("counties")
+    .data(meCounties.features)
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "white")
+    .style("stroke-width", "1px")
+    .style("stroke-linejoin", "rounded")
+    .style("fill", "#bf5b17")
+    .style("fill-opacity", "0.25");
+
+  const outline = svg.append("g");
+
+  outline
+    .selectAll("border")
+    .data(meBorder.features)
+    .enter()
+    .append("path")
+    .attr("class", "state-border")
+    .attr("d", path)
+    .attr("stroke", "black")
+    .attr("stroke-width", "2")
+    .attr("fill-opacity", "0");
+
+  const stations = svg.append("g");
+
+  // this bit looks gnarly, but
+  //
+  // - the filter() is so we can focus on one or all genres
+  // - we pass in an array of feature indices as data elements vs the features themselves a
+  //   which we'll used to identify the right feature
+  // - for the initial state of each station/transmitter, we calculate the centroid and
+  //   initially draw a circle
+  // - we then draw the base circle
+  // - once drawn we transition the circle to the proper station service contour outlines (the `attrTween`)
+  stations
+    .selectAll("path")
+    .data(
+      d3.range(
+        meStations.features.filter((d) =>
+          selected_genre == "All"
+            ? true
+            : d.properties.simple_genre == selected_genre
+        ).length
+      )
+    )
+    .enter()
+    .append("path")
+    .attr("d", (d) => {
+      const geo = path(
+        meStations.features.filter((d) =>
+          selected_genre == "All"
+            ? true
+            : d.properties.simple_genre == selected_genre
+        )[d]
+      );
+      const centroid = path.centroid(meStations.features[d]);
+      const circle = pathCircle(centroid[0], centroid[1], 10);
+      return circle;
+    })
+    .style("stroke-width", "1.5px")
+    .style("stroke", "black")
+    .style("stroke-opacity", "1")
+    .style("stroke-dasharray", "1,2")
+    .attr(
+      "fill",
+      (d) =>
+        `url(#${meStations.features
+          .filter((d) =>
+            selected_genre == "All"
+              ? true
+              : d.properties.simple_genre == selected_genre
+          )
+          [d].properties.simple_genre.replace(" ", "-")})`
+    )
+    .style("fill-opacity", selected_genre == "All" ? "0.5" : "0.9")
+    .transition()
+    .duration(750)
+    .ease(d3.easeLinear)
+    .attrTween("d", function (d) {
+      const geo = path(
+        meStations.features.filter((d) =>
+          selected_genre == "All"
+            ? true
+            : d.properties.simple_genre == selected_genre
+        )[d]
+      );
+      const centroid = path.centroid(
+        meStations.features.filter((d) =>
+          selected_genre == "All"
+            ? true
+            : d.properties.simple_genre == selected_genre
+        )[d]
+      );
+      const circle = pathCircle(centroid[0], centroid[1], 30);
+      return flubber.interpolate(circle, geo);
+    });
+
+  return svg.node();
+}
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+current_station_url = {
+  if (selected_genre == "All") return "";
+  return sample_stations[selected_genre];
+}
+```
+
+```{ojs}
+sample_stations = {
+  var ret = {
+    Country:
+      "https://14553.live.streamtheworld.com/WTHT_FMAAC.aac?pname=StandardPlayerV4&pversion=4.19.2-044&csegid=888&dist=triton-web&tdsdk=js-2.9&swm=false&banners=300x250&burst-time=15&sbmid=94833a10-03ca-4048-d04b-6149598e1262",
+    Contemporary:
+      "https://26283.live.streamtheworld.com/WFMXFMAAC.aac?pname=StandardPlayerV4&pversion=4.19.2-044&csegid=888&dist=triton-web&tdsdk=js-2.9&swm=false&banners=300x250&burst-time=15&sbmid=9d2aaf2b-d015-488f-add9-9647a5625029",
+    Religious: "https://ic1.sslstream.com/wsew-fm?rnd=3410",
+    Rock: "https://24493.live.streamtheworld.com/WHXR_FMAAC_SC?dist=onlineradiobox",
+    Alternative:
+      "https://ice8.securenetsystems.net/WZLO?playSessionID=E9E8908B-155D-C0F3-0362DAC67EEA487B",
+    Classical: "http://27053.live.streamtheworld.com:3690/WMEAFM.mp3"
+  };
+  ret["Top-40"] =
+    "https://ia600605.us.archive.org/8/items/NeverGonnaGiveYouUp/jocofullinterview41.mp3";
+  ret["Classic Hits"] =
+    "https://24503.live.streamtheworld.com/WFMXFMAAC.aac?pname=StandardPlayerV4&pversion=4.19.2-044&csegid=888&dist=triton-web&tdsdk=js-2.9&swm=false&banners=300x250&burst-time=15&sbmid=a4b7c89f-f529-4bbf-cdc9-7825edabf57c";
+  return ret;
+}
+```
+
+```{ojs}
+scaleColorFill = d3.scaleOrdinal(
+  genres.map((d) => d.simple_genre),
+  d3.schemePastel2
+)
+```
+
+```{ojs}
+genres = db.sql`SELECT DISTINCT simple_genre FROM stations`
+```
+
+```{ojs}
+db = DuckDBClient.of({
+  stations: meStations.features.map((d) => d.properties)
+})
+```
+
+```{ojs}
+meStations = FileAttachment("me-stations@4.geojson").json()
+```
+
+```{ojs}
+path = d3.geoPath().projection(projection)
+```
+
+```{ojs}
+projection = d3.geoAlbersUsa().fitSize([width, height], meStations);
+```
+
+```{ojs}
+meCounties = FileAttachment("me-counties.geojson").json()
+```
+
+```{ojs}
+meBorder = FileAttachment("me-border.geojson").json()
+```
+
+```{ojs}
+pathCircle = (x, y, r) => {
+  return `M ${x}, ${y} 
+          m ${-r}, 0 
+          a ${r}, ${r} 0 1,0 ${r * 2}, 0
+          a ${r}, ${r} 0 1,0 ${-r * 2}, 0`;
+}
+```
+
+```{ojs}
+height = width
+```
+
+```{ojs}
+import { flubber } from "@pstuffa/geopath-to-circle-transitions-with-flubber"
+```
+
+```{ojs}
+import { Swatches } from "@d3/color-legend"
+```
+
+```{ojs}
+md````r
+library(sf)
+library(xml2)
+library(rvest)
+library(tidyverse)
+
+# I just used an interactive Burp Proxy session to grab the HTML tables
+
+read_xml("~/Data/scraped.burp") |> # https://radio-locator.com/cgi-bin/
+  xml_find_all(".//item[contains(method, 'GET')]/response") |>
+  xml_text() |>
+  map(openssl::base64_decode) |>
+  map(rawToChar) |>
+  map(read_html) |>
+  map(html_node, xpath = ".//table[@style = 'width:100%;border-spacing:2px']") |>
+  keep(~ length(.x) > 0) |>
+  map_df(~{
+    tibble(
+      call_sign = tail(html_nodes(.x, xpath = ".//td[3]") |> html_text(), -1),
+      frequency = tail(html_nodes(.x, xpath = ".//td[4]") |> html_text(), -1),
+      city = tail(html_nodes(.x, xpath = ".//td[5]") |> html_text(), -1),
+      genre = html_nodes(.x, xpath = ".//td[7]/span[1]") |> html_text()
+    )
+  }) |> 
+  distinct() |>
+  mutate(
+    call_sign = gsub(" \\(.*", "", call_sign)
+  ) |>
+  distinct(
+    call_sign,
+    .keep_all = TRUE
+  ) -> stations
+
+read_delim(
+  file = "~/Data/stations.txt", # https://transition.fcc.gov/fcc-bin/fmq?call=&fileno=&state=ME&city=&freq=0.0&fre2=107.9&serv=-1&status=&facid=&asrn=&class=&list=4&ThisTab=Results+to+This+Page/Tab&dist=&dlat2=&mlat2=&slat2=&NS=N&dlon2=&mlon2=&slon2=&EW=W&size=9
+  col_names = FALSE,
+  delim = "|",
+  trim_ws = TRUE
+) |>
+  select(
+    call_sign = X2,
+    id = X39
+  ) |> 
+  filter(!is.na(id)) -> call_sign_to_id
+
+# Someone *REALLY* needs to introduce the FCC to shapefiles or GeoJSON
+read_delim(
+  file = "~/Data/FM_service_contour_current.txt", # https://www.fcc.gov/media/radio/fm-service-contour-data-points
+  delim = "|",
+  trim_ws = TRUE
+) |>
+  select(
+    id = lms_application_id,
+    matches("[[:digit:]]")
+  ) |> 
+  filter(
+    id %in% call_sign_to_id$id
+  ) |>
+  pivot_longer(
+    -id,
+    names_to = "crd",
+    values_to = "coord"
+  ) |> 
+  separate(
+    coord, 
+    into = c("lat", "lng"), 
+    sep = "[ ,]+"
+  ) |> 
+  filter(!is.na(lat) | !is.na(lng)) |> 
+  st_as_sf(
+    coords = c("lng", "lat"),
+    crs = 4326
+  ) |> 
+  group_by(id) |> 
+  summarise(
+    geometry = st_combine(geometry)
+  ) |> 
+  st_cast("POLYGON") |> 
+  left_join(
+    call_sign_to_id
+  ) |> 
+  left_join(stations) |> 
+  select(
+    call_sign,
+    frequency,
+    city,
+    genre,
+    id
+  ) |> 
+  filter(
+    !is.na(genre),
+    !(genre %in% c('Talk', 'College', 'Variety', 'Grade School (K-12)', 'Nostalgia', 'Sports', 'Public Radio'))
+  ) |>
+  mutate( # simplify the genres
+    simple_genre = case_when(
+      genre %in% c("Adult Contemporary", "Hot AC") ~ "Contemporary",
+      grepl("Christian|Relig|Gospel", genre) ~ "Religious",
+      grepl("Country", genre) ~ "Country",
+      grepl("Rock", genre) ~ "Rock",
+      grepl("Alternative", genre) ~ "Alternative",
+      TRUE ~ genre
+    )
+  ) |> 
+  st_write("~/Data/me-stations.geojson")
+
+````
+```
+
+```{ojs}
+html`
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+h1,h2,h3, p {
+  max-width: 100%
+}
+</style>
+`
+```
+

@@ -1,0 +1,148 @@
+---
+title: '2022 30-day Map Challenge • Day 13 • 5-Minute Map •  Starbucks Workers United'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-13-5-minute-map-sbwu'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 13 • 5-Minute Map • ![](${sbwuLogoSmall}) <span style='color:${starbucksGreen}'>Starbucks Workers United</span>`
+```
+
+```{ojs}
+md`Today's challenge is to make a map in 5 minutes. 
+
+Yesterday, I came across [this article](https://perfectunion.us/map-where-are-starbucks-workers-unionizing/) on Starbucks locations that have had union efforts of some type. I care about this because Starbucks closed the location in Portland, Maine after works there voted to unionize. I'm not crazy about unions since they tend to get as corrupt as corporations _(don't @ me; it's true)_, but what Starbucks did officially puts them in the "evil" box (more so than they had already been).
+
+Since that site had a map and I'm a curious person, I poked through the Developer Tools "Network" tab and saw it had a [lovely JSON file](https://perfectunion.us/wp-json/wpgmza/v1/features/base64eJyrVkrLzClJLVKyUqqOUcpNLIjPTIlRsopRMoxR0gEJFGeUFni6FAPFomOBAsmlxSX5uW6ZqTkpELFapVoABU0Wug), so I had saved that off and went about the rest of my day.
+
+Today, Just before I fired up a new Observable notebook to make this catch-up challenge (I'm rly behind) I decided to just [riff from of the OpenStreetMap entry from the other day's challenge](https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-06-network-central-maine-power?collection=@hrbrmstr/2022-30-day-map-challenge) and use the saved off strike JSON for today's data. Being able to `import` saved a bit of typing time.
+
+The first map (below) is what was left after **4m 57s**. Some of the time was spent figuring out the JSON format and (daftly) downloading the Starbucks Workers' Union icons. I figured it'd be kind of ugly and it is, but it's a 5-minute map!
+
+Scroll down for an 11-minute version (that time includes the code that helped make the data table).`
+```
+
+```{ojs}
+sb_unions_5m = {
+  const container = DOM.element("div", {
+    style: `width:${width}px;height:${width / 1.5}px`
+  });
+  yield container;
+
+  const map = L.map(container).setView([40, -95], 4);
+  const osmLayer = L.tileLayer(
+    "https://stamen-tiles-{s}.a.ssl.fastly.net/" +
+      `terrain` +
+      "/{z}/{x}/{y}{r}.{ext}",
+    {
+      attribution:
+        'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a           href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: "abcd",
+      minZoom: 0,
+      maxZoom: 20,
+      ext: "png"
+    }
+  ).addTo(map);
+
+  for (var i = 0; i < starbucksUnion.markers.length; i++) {
+    const marker = new L.marker([
+      starbucksUnion.markers[i].lat,
+      starbucksUnion.markers[i].lng
+    ])
+      .bindPopup(starbucksUnion.markers[i].address)
+      .addTo(map);
+  }
+}
+```
+
+```{ojs}
+md`This is (mostly) what I had in mind to make: icon markers on a Leaflet map with all available location and union info. It's a tad nicer than the 5-minute version, and since I need to get other entries in, this is where it'll stay.`
+```
+
+```{ojs}
+sb_unions = {
+  const container = DOM.element("div", {
+    style: `width:${width}px;height:${width / 1.5}px`
+  });
+  yield container;
+
+  const map = L.map(container).setView([40, -95], 4);
+  const osmLayer = L.tileLayer(
+    "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    {
+      attribution:
+        '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> Contributors',
+      maxZoom: 18
+    }
+  ).addTo(map);
+
+  for (var i = 0; i < starbucksUnion.markers.length; i++) {
+    const cfd = starbucksUnion.markers[i].custom_field_data
+      .map((d) => `<b>${d.name}</b>: ${d.value}`)
+      .join("\n<br/>");
+
+    const marker = new L.marker(
+      [starbucksUnion.markers[i].lat, starbucksUnion.markers[i].lng],
+      { icon: sbwuIcon }
+    )
+      .bindPopup(cfd)
+      .addTo(map);
+  }
+}
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+sbu4table = starbucksUnion.markers.map((d) => ({
+  title: d.title,
+  address: d.address,
+  status: d.custom_field_data[1].value,
+  vote_results: d.custom_field_data[2].value
+  // vote_count: d.custom_field_data[3].value
+}))
+```
+
+```{ojs}
+starbucksUnion = FileAttachment("starbucks-union.json").json()
+```
+
+```{ojs}
+sbwuIcon = new Icon({ iconUrl: sbwuLogoSmall })
+```
+
+```{ojs}
+Icon = L.Icon.extend({
+  options: {
+    iconSize: [32, 32],
+    shadowSize: [50, 64],
+    iconAnchor: [16, 16],
+    shadowAnchor: [4, 62],
+    popupAnchor: [-3, -76]
+  }
+})
+```
+
+```{ojs}
+sbwuLogoSmall = FileAttachment("sbwu-logo-small.png").url()
+```
+
+```{ojs}
+starbucksGreen = "#396540"
+```
+
+```{ojs}
+style
+```
+
+```{ojs}
+import {
+  L,
+  style
+} from "@hrbrmstr/2022-30-day-map-challenge-day-06-network-central-maine-power"
+```
+

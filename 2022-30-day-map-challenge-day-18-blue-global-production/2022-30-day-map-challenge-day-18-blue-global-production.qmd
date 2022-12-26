@@ -1,0 +1,185 @@
+---
+title: '2022 30-day Map Challenge • Day 18 • Blue • Global 🫐 Production'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-18-blue-global-production'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 18 • <span style='color:#8ecbfe'>Blue</span> • Global 🫐 Production`
+```
+
+```{ojs}
+md`(Please see [Day 12](https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-12-scale-international-tourism?collection=@hrbrmstr/2022-30-day-map-challenge) for an explanation of the Bertin projection and Dorling cartograms.)
+
+Even though I live in Maine (🇺🇸), it's super-hard to find decent in-state blueberry production data. This is due, in part, out of privacy concerns for some Maine 🫐 farms.
+
+I managed to find some (what appears to be) "average" annual production data from a [pretty sketch site](https://www.atlasbig.com/en-us/countries-blueberry-production), but it's not like you're going to be making investments in 🫐 farms based on this analysis so we'll just say it's accurate (and the U.S. data lines up with various USDA estimates after a spot-check).
+
+We're riffing from Day 12, but adding in some bits you may want to 👀:
+
+- the CSV file has four measures, and we want to let the user switch between them
+- the measures are determined dynamically from the column names
+- we make pretty Title Case column names from the snake_case they're in
+- we use the fancy `` ObservableJS operator to get the right values in the popup
+
+You may be surprised at the way the choropleth changes depending on the measure. I sure was!
+
+The R code used to clean up the scraped table is at the end of this notebook.`
+```
+
+```{ojs}
+viewof measure = Inputs.radio(blueberry_fields, {
+  label: "Select measure",
+  value: blueberry_fields[0],
+  format: toTitleCase
+})
+```
+
+```{ojs}
+md`**Select year or press 'Play':**`
+```
+
+```{ojs}
+choro = bertin.draw({
+  params: { projection: d3.geoBertin1953() },
+  layers: [
+    {
+      type: "header",
+      text: `International Annual 🫐 Production Metadata (Average Year)`
+    },
+    {
+      type: "bubble",
+      geojson: bbs,
+      values: measure,
+      k: 50,
+      dorling: true,
+      fill: "#304b77aa",
+      leg_x: 680,
+      leg_y: 410,
+      leg_fontSize2: 10,
+      leg_title: `${toTitleCase(measure)}`,
+      tooltip: ["$country", `$${measure}`, `${toTitleCase(measure)}`],
+      leg_round: -2
+    },
+
+    {
+      type: "layer",
+      geojson: countries,
+      fill: "white",
+      fillOpacity: 0.6,
+      stroke: "#b3b3b3"
+    },
+    { type: "graticule" },
+    { type: "outline" }
+  ]
+})
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+blueberry_fields = blueberries.columns.filter(
+  (d) => !["country", "lat", "lng"].includes(d)
+)
+```
+
+```{ojs}
+bbs = bertin.table2geo(blueberries, "lat", "lng")
+```
+
+```{ojs}
+function toTitleCase(str) {
+  return str
+    .toLowerCase()
+    .replaceAll("_", " ")
+    .split(" ")
+    .map((d) => d.charAt(0).toUpperCase() + d.slice(1))
+    .join(" ");
+}
+```
+
+```{ojs}
+d3 = require("d3@7", "d3-geo-projection@4")
+```
+
+```{ojs}
+import { bertin, countries } from "@neocartocnrs/bertin-js-dorling-cartogram"
+```
+
+```{ojs}
+md`R code used to get the 🫐 data.`
+```
+
+```{ojs}
+md````r
+library(rvest)
+library(stringi)
+library(tidyverse)
+
+# need the "centroids"
+read_csv("~/Data/world-bank-tourism-arrivals-2000-2020.csv") |> 
+  distinct(country, lat, lng) -> centers
+
+pg <- read_html("https://www.atlasbig.com/en-us/countries-blueberry-production")
+
+html_table(pg)[[1]] |> 
+  janitor::clean_names() |> 
+  select(
+    -x
+  ) |> 
+  mutate_all(
+    stri_replace_all_fixed, ",", ""
+  ) |> 
+  mutate_at(
+    vars(-country), 
+    as.numeric
+  ) |> 
+  filter(
+    production_tons > 0
+  ) |> 
+  mutate(
+    country = case_when(
+      country == "United States of America" ~ "United States",
+      country == "The Netherlands" ~ "Netherlands",
+      TRUE ~ country
+    )
+  ) |> 
+  left_join(centers) |> 
+  mutate(
+    lat = ifelse(country == "Slovakia", 48.1, lat),
+    lng = ifelse(country == "Slovakia", 17.1, lng)
+  ) -> xdf
+
+write_csv(xdf, "~/Data/blueberries.csv")
+````
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

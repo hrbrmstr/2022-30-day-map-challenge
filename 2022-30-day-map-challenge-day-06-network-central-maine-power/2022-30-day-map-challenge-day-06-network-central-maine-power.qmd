@@ -1,0 +1,74 @@
+---
+title: '2022 30-day Map Challenge • Day 06 • Network • ⚡️ Central Maine Power 3 Phase Circuit Network'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-06-network-central-maine-power'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 06 • Network • ⚡️ Central Maine Power 3 Phase Circuit Network`
+```
+
+```{ojs}
+md`I'm super-behind on the 2022 challenge, so we cheat a bit and use Leaflet to plot a GeoJSON file I made of [Central Maine Power](https://cmpco.com)'s [3 Phase Circuit](https://en.wikipedia.org/wiki/Three-phase_electric_power) network in Maine.
+
+The linestring layer is pretty detailed, so zoom in/around a bit to see where all these cables are.
+
+You can change the basemap tiles between terrain and toner styles.`
+```
+
+```{ojs}
+viewof base = Inputs.select(
+  ["toner", "terrain"],
+  {
+    label: "Choose basemap tiles style"
+  }
+)
+```
+
+```{ojs}
+cmpPhase3Map = {
+  const container = DOM.element("div", {
+    style: `width:${width}px;height:${width}px`
+  });
+  yield container; // the DOM element needs to be present for Leaflet to load bits into so we let it go here
+
+  const map = L.map(container).setView([44.7, -68.6], 8); // center map on Maine
+  const osmLayer = L.tileLayer(
+    "https://stamen-tiles-{s}.a.ssl.fastly.net/" +
+      `${base}` + // takes queues from the select box
+      "/{z}/{x}/{y}{r}.{ext}",
+    {
+      // this is required by Stamen/OSM
+      attribution:
+        'Map tiles by <a href="http://stamen.com">Stamen Design</a>, <a           href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a> &mdash; Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: "abcd",
+      minZoom: 0,
+      maxZoom: 20,
+      ext: "png"
+    }
+  ).addTo(map);
+
+  // leaflet knows GeoJSON
+  const power = L.geoJson(cmpPhase3, {
+    weight: 1,
+    color: "#cb181d"
+  }).addTo(map);
+}
+```
+
+```{ojs}
+cmpPhase3 = FileAttachment("cmp-phase3@1.geojson").json()
+```
+
+```{ojs}
+L = require("leaflet@1.2.0")
+```
+
+```{ojs}
+style = html`<link href='${resolve(
+  "leaflet@1.2.0/dist/leaflet.css"
+)}' rel='stylesheet' />`
+```
+

@@ -1,0 +1,24 @@
+---
+title: '2022 30-day Map Challenge • Day 24 • Fantasy • 🚀 The Expanse: Eros Station Tube Map'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-23-fantasy-the-expanse-eros-sta'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 24 • Fantasy • 🚀 The Expanse: Eros Station Tube Map`
+```
+
+```{ojs}
+md`In the TV series version of The Expanse, there's a brief scene where they show the "transit pod" map with radiation spots overlaid. I'm not the first person to recreate that tube map, and I won't be the last.
+
+No fancy D3 (though there is a nice tube map-maker d3 library; there was no way I was going to fiddle with coordinates for this entry, tho). No javascript at all. Just me, Omnigraffle, and an assist from Illustrator to convert the Protomolecule font to outlines for maximum compatibility.
+
+The stars, most certainly, are far better off without us.`
+```
+
+```{ojs}
+erosStationTubeMap = FileAttachment("eros-station-tube-map@1.svg").image()
+```
+

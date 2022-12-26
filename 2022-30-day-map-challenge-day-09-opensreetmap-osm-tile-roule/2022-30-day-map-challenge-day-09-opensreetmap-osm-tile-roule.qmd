@@ -1,0 +1,67 @@
+---
+title: '2022 30-day Map Challenge • Day 08 • Data: OpenSreetMap • 🎲🎲 OSM Tile Roulette'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-09-opensreetmap-osm-tile-roule'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 08 • Data: OpenSreetMap • 🎲🎲 OSM Tile Roulette`
+```
+
+```{ojs}
+md`I'm seriously behind on the challenges so this is just a toy entry.
+
+OpenStreetMap tiles are [slippy maps](https://wiki.openstreetmap.org/wiki/Slippy_map_tilenames) that return different squares depending on the zoom level + x/y coordinates.
+
+Change the zoom and hit "Randomize" to see if you can make random bits of the world fit together.
+
+Limiting it to 2 x 2 tile set since we don't want to put any extra load on the OSM servers for `#30DayChartChallenge`.
+
+(And, this way, the tiles themselves totally count as "Data".)`
+```
+
+```{ojs}
+viewof z = Inputs.range([1, 6], {
+  label: "OSM Tile Zoom Level",
+  step: 1,
+  value: 1
+})
+```
+
+```{ojs}
+viewof r = Inputs.button(
+  [
+    ["Reset", (value) => [0, 0, 1, 0, 0, 1, 1, 1]],
+    ["Randomize", (value) => d3.range(8).map((d) => randTile())]
+  ],
+  { value: [0, 0, 1, 0, 0, 1, 1, 1], label: "Tile Roulette" }
+)
+```
+
+```{ojs}
+html`<div style="display: flex; flex-wrap: wrap; width: 514px; gap: 2px">
+  <img src="https://tile.osm.org/${z}/${r[0]}/${r[1]}.png">
+  <img src="https://tile.osm.org/${z}/${r[2]}/${r[3]}.png">
+  <img src="https://tile.osm.org/${z}/${r[4]}/${r[5]}.png">
+  <img src="https://tile.osm.org/${z}/${r[6]}/${r[7]}.png">
+</div>`
+```
+
+```{ojs}
+randTile = function () {
+  if (z == 1) return rand(0, 1);
+  if (z == 2) return rand(0, 3);
+  return rand(0, Math.pow(2, z) - 1);
+}
+```
+
+```{ojs}
+function rand(min, max) {
+  min = Math.ceil(min);
+  max = Math.floor(max);
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+```
+

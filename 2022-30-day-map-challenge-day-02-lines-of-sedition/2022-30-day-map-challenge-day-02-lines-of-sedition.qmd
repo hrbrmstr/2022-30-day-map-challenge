@@ -1,0 +1,243 @@
+---
+title: '2022 30-day Map Challenge • Day 02 • Lines of Sedition'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-02-lines-of-sedition'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 02 • Lines of Sedition
+
+Where the January 6th seditious scum came from. If you hover over the lower right dot in southern Maine, you'll see that the town next to me had one of them. The entire town threw the moron a party after he came back.`
+```
+
+```{ojs}
+md`In the spirit of keeping these initial Observable examples as minimal as possible, we build on the previous day's example by using the same base map layer idiom for the counties, then add in the state border lines. The "Albers USA" projected map is pretty standard fare in D3/Observable land, and has county, state, and nation polygons for us to work with.
+
+_Expand the code block for the map to see the inline comments._`
+```
+
+```{ojs}
+seditionist_map = {
+  // first we make the core SVG element we'll be returning
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width + 20, height])
+    .style("border", "1px solid white")
+    .style("width", width)
+    .style("height", height);
+
+  // now we focus on drawing the counties
+  var counties = svg.append("g").selectAll(".counties").data(us_counties);
+
+  // we paint the white paths with a random-ish blue fill;
+  counties
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "#c3c3c3")
+    .style("stroke-width", "0.75px")
+    .style("fill", "white");
+
+  // overlay state borders
+  var states = svg.append("g").selectAll(".states").data(us_states);
+
+  states
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "black")
+    .style("stroke-width", "1px")
+    .style("fill", "#00000000");
+
+  // now we're going to add the lines. in reality, we should use curves, but we're keeping it simple for now
+  var roads_to_sedition = svg.append("g").selectAll(".lines").data(dmc02Lines);
+
+  // we want to scale the width of the lines based on the number of seditionist scum that came from a given location
+  var line_scale = d3
+    .scaleLinear()
+    .domain(d3.extent(dmc02Lines.map((d) => d.n)))
+    .range([0.75, 3]); // TWEAK THIS RANGE AND SEE WHAT IT DOES
+
+  roads_to_sedition
+    .enter()
+    .append("line")
+    .attr("x1", (d) => projection([d.lng, d.lat])[0])
+    .attr("y1", (d) => projection([d.lng, d.lat])[1])
+    .attr("x2", (d) => dc_projected[0])
+    .attr("y2", (d) => dc_projected[1])
+    .attr("stroke", maga_red)
+    .attr("stroke-width", (d) => line_scale(d.n)) // this scales the line width
+    .style("stroke-dasharray", "1,2") // remove this for solid lines
+    .attr("stroke-opacity", 1 / 2); // so the lines aren't so overwhelming
+
+  // add starting point
+  roads_to_sedition
+    .enter()
+    .append("circle")
+    .attr("cx", (d) => projection([d.lng, d.lat])[0])
+    .attr("cy", (d) => projection([d.lng, d.lat])[1])
+    .attr("r", (d) => 3 * line_scale(d.n)) // this scales the points as well
+    .attr("fill", maga_red)
+    .attr("stroke", "white")
+    .attr("stroke-width", "0.75px")
+    .append("title")
+    .text((d) => d.location); // we'll show how to make this better with a voronoi layer in a later challenge
+
+  return svg.node();
+}
+```
+
+```{ojs}
+md`See R code block at the end of this notebook for how the data was gathered/wrangled.`
+```
+
+```{ojs}
+dmc02Lines = FileAttachment("2022-30dmc-02-lines@1.json").json()
+```
+
+```{ojs}
+md`We need to project the D.C. lat/lng`
+```
+
+```{ojs}
+dc_projected = projection([dc.lng, dc.lat])
+```
+
+```{ojs}
+md`This is the lat/lng for D.C.`
+```
+
+```{ojs}
+dc = ({ lat: 38.895, lng: -77.0366 })
+```
+
+```{ojs}
+md`Pull out the state polygons (see Day 01)`
+```
+
+```{ojs}
+us_states = topojson.feature(
+  countiesAlbers10m,
+  countiesAlbers10m.objects.states
+).features
+```
+
+```{ojs}
+md`Pull out the county polygons.`
+```
+
+```{ojs}
+us_counties = topojson.feature(
+  countiesAlbers10m,
+  countiesAlbers10m.objects.counties
+).features
+```
+
+```{ojs}
+projection = d3.geoAlbersUsa().scale(1300).translate([487.5, 305])
+```
+
+```{ojs}
+path = d3.geoPath()
+```
+
+```{ojs}
+countiesAlbers10m = FileAttachment("counties-albers-10m.json").json()
+```
+
+```{ojs}
+topojson = require("topojson-client@3")
+```
+
+```{ojs}
+width = 975 
+```
+
+```{ojs}
+height = 610
+```
+
+```{ojs}
+maga_red = "#f00808" // via https://www.color-hex.com/color-palette/21132
+```
+
+```{ojs}
+md`R code to generate the attached JSON data.`
+```
+
+```{ojs}
+md````r
+library(rvest)
+library(stringi)
+library(rgeocodio) # github.com/hrbrmstr/rgeocodio # GET AN API KEY per the pkg docs; GENEROUS FREE TIER
+library(tidyverse)
+
+# The NPR table is a bit cleaner than my scraper data: https://github.com/hrbrmstr/capitol-breach-scraper-and-data
+pg <- read_html("https://apps.npr.org/dailygraphics/graphics/capitol-riot-table-20210204/table.html?initialWidth=919&childId=responsive-embed-capitol-riot-table-20210204-table&parentTitle=Explore%20NPR%20database%20of%20Jan.%206%20Capitol%20riot%20cases%20and%20sentencing%20status%20updates%20%3A%20NPR&parentUrl=https%3A%2F%2Fwww.npr.org%2F2021%2F02%2F09%2F965472049%2Fthe-capitol-siege-the-arrested-and-their-stories%23database")
+
+# find the data and convert it; thankfully it's just JSON
+html_nodes(pg, xpath = ".//script[contains(., 'var DATA')]") |> 
+  html_text() |> 
+  stri_replace_all_regex("(var DATA = |;[[:space:]]+var LABELS.*)", "", multiline = TRUE) |> 
+  jsonlite::fromJSON() |> 
+  tibble::as_tibble() -> seditionists
+
+# make the location for geocoding
+seditionists |> 
+  mutate(
+    location = paste(city, state, sep = ", ")
+  ) -> seditionists
+  
+# not all the legal docs have full city/state
+seditionists |> 
+  filter(
+    city != ""
+  ) |> 
+  distinct(location) |> 
+  pull(location) |> 
+  gio_batch_geocode() -> geocoded_locations
+
+# 1.5% could not be geolocated which I'm OK with
+(geocoded_locations |> 
+  filter(
+    map_int(response_results, nrow) == 0
+  ) |> 
+  nrow()) / nrow(geocoded_locations)
+
+geocoded_locations |> 
+  filter(
+    map_int(response_results, nrow) > 0
+  ) |> 
+  rename(
+    location = query
+  ) |> 
+  mutate(
+    lat = map_dbl(response_results, ~.x[1, "location.lat"]),
+    lng = map_dbl(response_results, ~.x[1, "location.lng"])
+  ) |> 
+  select(
+    location, lat, lng
+  ) |> 
+  inner_join(
+    seditionists
+  ) |> 
+  count(location, lat, lng) |> 
+  jsonlite::toJSON() |> 
+  writeLines("~/Data/2022-30dmc-02-lines.json")
+````
+```
+
+```{ojs}
+html`
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+font-family: "Fira Code", monospace;
+}
+</style>
+`
+```
+

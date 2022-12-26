@@ -1,0 +1,52 @@
+---
+title: '2022 30-day Map Challenge • Day 28 • 3D • 🛰️ Geosynchronous Satellites 🌎'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-28-3d-geosynchronous-satellit'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 28 • 3D • 🛰️ Geosynchronous Satellites 🌎 `
+```
+
+```{ojs}
+md`We re-visit Globe.gl and Three.js. to show earth satellites in geosynchronous orbit.
+
+[N2YO](https://www.n2yo.com/api/) has a decent API (and the site, itself, is cool), so we just grab data from there, shove it into a CSV, and let the clean Globe library do the rest.
+
+NOTE: The altitudes and diameters are _a tad_ exaggerated for effect.`
+```
+
+```{ojs}
+sats = {
+  const div = document.createElement("div");
+  yield div;
+
+  const sat = Globe()
+    .globeImageUrl("//unpkg.com/three-globe/example/img/earth-blue-marble.jpg")
+    .height(width * 0.9)
+    .width(width);
+
+  sat.objectsData(satellites).objectAltitude((d) => d.alt / 100000);
+
+  sat(div);
+
+  sat.controls().autoRotateSpeed = 1; // play with this value
+  sat.controls().autoRotate = true;
+
+  return div;
+}
+```
+
+```{ojs}
+import {
+  Globe,
+  THREE
+} from "@hrbrmstr/2022-30-day-map-challenge-day-09-space-mars-junk"
+```
+
+```{ojs}
+
+```
+

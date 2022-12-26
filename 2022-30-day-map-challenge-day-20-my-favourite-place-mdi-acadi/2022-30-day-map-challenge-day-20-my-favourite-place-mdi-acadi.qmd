@@ -1,0 +1,122 @@
+---
+title: '2022 30-day Map Challenge • Day 20 • My favourite…place! ⛰️ MDI/Acadia National Park'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-20-my-favourite-place-mdi-acadi'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 20 • My favourite…place! ⛰️ MDI/Acadia National Park`
+```
+
+```{ojs}
+md`I did a more stylized map of Mount Desert Island / Acadia National Park [back in 2019](https://rud.is/books/30-day-map-challenge/elevation-01.html#elevation-06) for that years' `#30DayMapChallenge`, and decided to ~re-implement it in ObservableJS (the original was in R).
+
+Jam packed day, today, so I will have to leave debugging the circle artifacts (these are shapefiles I mangled back in the day vs re-create, here, today) and adding lake names for another time.`
+```
+
+```{ojs}
+md`## Mount Desert Island / Acadia National Park`
+```
+
+```{ojs}
+leg = Legend(contourScale, { title: "Elevation (ft)" })
+```
+
+```{ojs}
+me_map = {
+  const height = width / 1.5;
+
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, -30, width, height])
+    .style("width", width)
+    .style("height", height);
+
+  svg
+    .append("rect")
+    .attr("x", 0)
+    .attr("y", -30)
+    .attr("width", width)
+    .attr("height", height)
+    .attr("stroke", "#3a4f5b")
+    .attr("fill", "#3a4f5b");
+
+  var borders = svg.append("g").selectAll(".border").data(mdiBorder.features);
+
+  borders
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "#999999")
+    .style("stroke-width", "6px")
+    .style("stroke-opacity", "0.5")
+    .style("fill", "white");
+
+  borders
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "black")
+    .style("stroke-width", "1px")
+    .style("stroke-opacity", "1")
+    .style("fill", "#f6e3b9");
+
+  var contours = svg.append("g").selectAll(".contour").data(mdi.features);
+
+  contours
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", (d) => contourScale(d.properties.ContourEle))
+    .style("stroke-width", "0.25px")
+    .style("stroke-opacity", "1")
+    .style("fill", "#00000000");
+
+  var water = svg.append("g").selectAll(".water").data(mdiInlandWater.features);
+
+  water
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "black")
+    .style("stroke-width", "0.1px")
+    .style("stroke-opacity", "1")
+    .style("fill", "#3a4f5b");
+
+  return svg.node();
+}
+```
+
+```{ojs}
+contourScale = d3.scaleSequential(
+  d3.extent(mdi.features.map((d) => d.properties.ContourEle)),
+  d3.interpolateMagma
+)
+```
+
+```{ojs}
+path = d3.geoPath(projection)
+```
+
+```{ojs}
+projection = d3.geoMercator().fitSize([width, width * 0.6], mdiBorder)
+```
+
+```{ojs}
+mdiBorder = FileAttachment("mdi-border@3.geojson").json()
+```
+
+```{ojs}
+mdi = FileAttachment("mdi@3.geojson").json()
+```
+
+```{ojs}
+mdiInlandWater = FileAttachment("mdi-inland-water@3.geojson").json()
+```
+
+```{ojs}
+import { Legend } from "@d3/color-legend"
+```
+

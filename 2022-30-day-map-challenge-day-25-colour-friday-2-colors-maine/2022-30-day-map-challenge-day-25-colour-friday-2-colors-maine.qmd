@@ -1,0 +1,182 @@
+---
+title: '2022 30-day Map Challenge • Day 25 • 🟥🟦 Colour Friday: 2 Colors  Maine's Main & Secondary Roads'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-25-colour-friday-2-colors-maine'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 25 • <br/>🟥🟦 Colour Friday: 2 Colors <br/> Maine's Main & Secondary Roads`
+```
+
+```{ojs}
+md`Large swaths of my state (Maine) are "unorganized" and — for the most part — uninhabited. There are many ways to show this dichotomy, and I'm reprising a previous year's challenge concept for today's entry.
+
+The U.S. Census maintains many spatial datasets, including a catalog of all [primary and secondary roads]((https://catalog.data.gov/dataset/tiger-line-shapefile-2019-series-information-for-the-primary-and-secondary-roads-state-based-sh)). This is how they define those terms:
+
+>_Primary roads are generally divided, limited-access highways within the interstate highway system or under State management, and are distinguished by the presence of interchanges.  These highways are accessible by ramps and may include some toll highways.  The MAF/TIGER Feature Classification Code (MTFCC) is S1100 for primary roads.  Secondary roads are main arteries, usually in the U.S. Highway, State Highway, and/or County Highway system.  These roads have one or more lanes of traffic in each direction, may or may not be divided, and usually have at-grade intersections with many other roads and driveways.  They usually have both a local name and a route number.  The MAF/TIGER Feature Classification Code (MTFCC) is S1200 for secondary roads._
+
+The {[tigris](https://cran.r-project.org/web/packages/tigris/index.html)} package makes retrieving and working with these files in R super-easy. Note that while I am biased (I'm a co-author of that package), Kyle did & does all the real work for it.
+
+We use a "seacoast" blue and a "Maine" red for the two colors (since creativity is lacking today), with red representing the (scant number of) primary roads in Maine and blue for all the secondary roads.
+
+This notebook mixes things up a tad from previous ones by:
+
+- using some simplified code for scaling/positioning the rendered GeoJSON
+- supporting single-click zoom in/out (you need to hit a segment, since I didn't feel like sticking a Voronoi layer on top)
+- drawing a legend right on the map to take advantage of the glaring open area the the northeast part of Maine
+
+We only draw the lines since they do a fine job showing the general outline of Maine.`
+```
+
+```{ojs}
+{
+  const height = width;
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("border", "1px solid white")
+    .style("width", width)
+    .style("height", height)
+    .on("click", reset);
+
+  var projection = d3.geoAlbersUsa().fitSize([width, height], meRoads);
+  var path = d3.geoPath().projection(projection);
+
+  const roads = svg.append("g");
+
+  function reset() {
+    svg
+      .transition()
+      .duration(750)
+      .call(
+        zoom.transform,
+        d3.zoomIdentity,
+        d3.zoomTransform(svg.node()).invert([width / 2, height / 2])
+      );
+  }
+
+  function zoomed(event) {
+    const { transform } = event;
+    roads.attr("transform", transform);
+    // roads.attr("stroke-width", 1 / transform.k);
+  }
+
+  function clicked(event, d) {
+    const [[x0, y0], [x1, y1]] = path.bounds(d);
+    event.stopPropagation();
+    d3.select(this).transition().style("fill", "red");
+    svg
+      .transition()
+      .duration(750)
+      .call(
+        zoom.transform,
+        d3.zoomIdentity
+          .translate(width / 2, height / 2)
+          .scale(
+            Math.min(8, 0.9 / Math.max((x1 - x0) / width, (y1 - y0) / height))
+          )
+          .translate(-(x0 + x1) / 2, -(y0 + y1) / 2),
+        d3.pointer(event, svg.node())
+      );
+  }
+
+  const zoom = d3.zoom().scaleExtent([1, 8]).on("zoom", zoomed);
+
+  roads
+    .selectAll("path")
+    .data(meRoads.features)
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .on("click", clicked)
+    .style("stroke-width", (d) => scaleLineWidthManual(d.properties.road_type))
+    .style("stroke", (d) => scaleColorManual(d.properties.road_type))
+    .style("fill-opacity", "0");
+
+  const legend = d3Legend
+    .legendColor()
+    .shape("path", d3.symbol().type(d3.symbolSquare).size(150)())
+    .shapePadding(25)
+    .labelOffset(20)
+    .scale(scaleColorManual);
+
+  svg
+    .append("g")
+    .attr("class", "legend legend--ordinal")
+    .attr("transform", `translate(${width * 0.25},${width * 0.25})`);
+
+  svg.select(".legend").call(legend);
+
+  return svg.node();
+}
+```
+
+```{ojs}
+scaleColorManual = d3.scaleOrdinal(
+  ["Primary Road", "Secondary Road"],
+  ["#ef3b2c", "#3288bd"]
+)
+```
+
+```{ojs}
+scaleLineWidthManual = d3.scaleOrdinal(
+  ["Primary Road", "Secondary Road"],
+  ["6px", "0.55px"]
+)
+```
+
+```{ojs}
+meRoads = FileAttachment("me-roads@1.geojson").json()
+```
+
+```{ojs}
+md`R code used to get the GeoJSON.`
+```
+
+```{ojs}
+md````r
+library(sf)
+library(tigris)
+library(tidyverse)
+
+tigris::primary_secondary_roads(
+  state = "ME") |> 
+  filter(
+    MTFCC %in% c("S1100", "S1200")
+  ) |> 
+  select(
+    road_type = MTFCC
+  ) |> 
+  mutate(
+    road_type = ifelse(road_type == "S1100", "Primary Road", "Secondary Road")
+  ) |> 
+  st_transform(
+    crs = 4326
+  ) |> 
+  st_write(
+    "~/Data/me-roads.geojson"
+  )
+````
+```
+
+```{ojs}
+d3Legend = require("d3-svg-legend")
+```
+
+```{ojs}
+html`
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+font-family: "Fira Code", monospace;
+}
+.legend {
+  font-family: sans-serif;
+}
+</style>
+`
+```
+

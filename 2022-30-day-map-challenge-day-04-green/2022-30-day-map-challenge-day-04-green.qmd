@@ -1,0 +1,194 @@
+---
+title: '2022 30-day Map Challenge • Day 04 • Green 💨 🌞 Energy'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-04-green'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 04 • <span style='color:#41ab5d'>Green</span> 💨 🌞 Energy`
+```
+
+```{ojs}
+md`This day's project uses harmonized global datasets of wind and solar farm locations and power collected by Sebastian Dunnett, Alessandro Sorichetta, Gail Taylor & Felix Eigenbrod. Their paper and data can be found [at Nature](https://www.nature.com/articles/s41597-020-0469-8).
+
+We're using Observable "Inputs" to let you choose both energy generation source (wind or solar) and which projection to use (from a very trimmed down list which you should feel free to modify/play with). It's kind of neat to see where 💨 is more prevalent than 🌞.
+
+The notebook code is super-mall thanks to being able to import some pre-built items from other notebooks.
+
+We're not getting _too_ fancy in this one (i.e. no zooming in) since I'm trying to build up to more complex notebooks at a reasonable pace for folks.`
+```
+
+```{ojs}
+viewof source = Inputs.select(
+  new Map([
+    ["Solar", solarGeo],
+    ["Wind", windGeo]
+  ]),
+  {
+    label: "Energy Generation Source"
+  }
+)
+```
+
+```{ojs}
+viewof projection = Inputs.select(
+  new Map([
+    ["Winkel tripel", d3.geoWinkel3()],
+    ["Equal Earth", d3.geoEqualEarth()],
+    ["Mollweide", d3.geoMollweide()]
+  ]),
+  {
+    label: "Globe Projection:"
+  }
+)
+```
+
+```{ojs}
+world = {
+  // comments in previous days shld help here. I added some that are unique to this one.
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width + 20, height])
+    .style("width", width)
+    .style("height", height);
+
+  const green = "#41ab5d";
+
+  // This shld explain "datum": https://stackoverflow.com/questions/10086167/d3-how-to-deal-with-json-data-structures
+  svg
+    .append("path")
+    .datum(graticule)
+    .attr("d", path) // path gets recomputed below and is part of the reason this block is re-run
+    .attr("stroke", green)
+    .attr("stroke-width", "0.5px")
+    .attr("stroke-dasharray", "1,2")
+    .attr("fill", "none");
+
+  const countries = svg.append("g").selectAll(".land").data(land.features);
+
+  countries
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "#252525")
+    .style("stroke-width", "0.5px")
+    .style("fill", "#252525");
+
+  // source gets recomputed thanks to the select box and is part of the reason this block is re-run
+  var sources = svg.append("g").selectAll(".source").data(source.features);
+
+  // i transfomed the points in the original shapefiles to WGS84 so we can project them properly here
+  sources
+    .enter()
+    .append("circle")
+    .attr("cx", (d) => projection(d.geometry.coordinates)[0])
+    .attr("cy", (d) => projection(d.geometry.coordinates)[1])
+    .attr("r", "1px")
+    .attr("fill", green)
+    .attr("fill-opacity", "0.1");
+
+  svg
+    .append("path")
+    .datum(outline)
+    .attr("d", path)
+    .attr("fill", "none")
+    .attr("stroke", green);
+
+  return svg.node();
+}
+```
+
+```{ojs}
+md`These are _large_ files. In reality, I could have just pulled points out from the paper's shapefiles, but the conversion to GeoJSON was the path of least resistance (R code snippet that does that at the end).`
+```
+
+```{ojs}
+solarGeo = FileAttachment("solar@2.geo.json").json()
+```
+
+```{ojs}
+windGeo = FileAttachment("wind@1.geo.json").json()
+```
+
+```{ojs}
+md`When the projection is selected, the `path` below is re-computed. This is one of the handier features of Observable notebooks.`
+```
+
+```{ojs}
+path = d3.geoPath(projection)
+```
+
+```{ojs}
+md`Stealing lots of code from D3 examples.`
+```
+
+```{ojs}
+import {
+  land,
+  height,
+  outline,
+  graticule
+} with { projection } from "@d3/world-map"
+// the "with" says that we're NOT using that object from the specified notebook b/c we have our own, here.
+```
+
+```{ojs}
+md`Supporting cast of D3 helpers.`
+```
+
+```{ojs}
+d3 = require("d3@7", "d3-geo@3", "d3-geo-projection@4")
+```
+
+```{ojs}
+md`R code snippet that made the GeoJSON files. I do the file rename vs try to remember the parameters to `st_write()`.`
+```
+
+```{ojs}
+md````r
+library(sf)
+
+solar <- st_read("~/Downloads/global_wind_solar_2020/global_wind_solar_2020.gdb/", "global_solar_2020")
+wind <- st_read("~/Downloads/global_wind_solar_2020/global_wind_solar_2020.gdb/", "global_wind_2020")
+
+solar |> 
+  st_transform(4326) |> 
+  st_write("~/Data/solar.geojson")
+
+file.rename("~/Data/solar.geojson", "~/Data/solar.geo.json")
+
+wind |> 
+  st_transform(4326) |> 
+  st_write("~/Data/wind.geojson")
+
+file.rename("~/Data/wind.geojson", "~/Data/wind.geo.json")
+````
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

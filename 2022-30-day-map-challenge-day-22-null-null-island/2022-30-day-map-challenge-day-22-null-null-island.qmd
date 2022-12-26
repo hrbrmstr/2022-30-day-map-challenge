@@ -1,0 +1,177 @@
+---
+title: '2022 30-day Map Challenge • Day 22 • NULL • 🏝️ Null Island'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-22-null-null-island'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 22 • NULL • 🏝️ Null Island`
+```
+
+```{ojs}
+md`Geolocation works great when it works. When it doesn't, some of the results can be frustrating, others can be interesting or even amusing. 
+
+In our book [Data-Driven Security](https://www.wiley.com/en-bs/Data+Driven+Security:+Analysis,+Visualization+and+Dashboards-p-9781118793725) we told the story of Potwin, KS, which is a place in the U.S. that gets returned when an IP address is geolocated to the U.S., but doesn't have more granular placement data.
+
+On a global scale, geolocation failures of all sorts often result in returning the coordinates for [Null Island](https://en.wikipedia.org/wiki/Null_Island), which just happens to be 0° longitude by 0° latitude. 
+
+While there is no land mass at 0°N, 0°W, there _is_ a buoy! Said object is part of the PIRATA (Pilot Research
+Moored Array in the Tropical Atlantic) project, which was created to address the lack of oceanic and atmospheric data in the tropical Atlantic, which limits our ability to make progress on these important climate issues. The PIRATA array consists of 12 moored Autonomous Temperature Line Acquisition System buoy sites. The [data is readily available](https://www.pmel.noaa.gov/tao/drupal/disdel/) from the TAO Project Office of NOAA/PMEL.
+
+R code to turn the NetCDF files into something we can easily use is at the end of this notebook.
+
+I've also got sone [JavaScript code](https://observablehq.com/@hrbrmstr/parsing-netcdf-in-javascript) to do the same NetCDF dance.
+
+For today's challenge we use a [neat, pirate-themed set of MapBox tiles](https://blog.mapbox.com/designing-the-treasure-map-style-4318390ad81c) and a <a href="https://www.flaticon.com/free-icons/buoy" title="buoy icons">buoy</a> and <a href="https://icons8.com/icon/NUROCLcGlkBS/island-on-water">island</a> icon to see where these PIRATA stations are, and when you click/tap on one of them, the historical sea temperature data will be presented as a sparkline chart in the popup.
+
+One **big** difference in today's entry is using Observable's new [support for DuckDB](https://observablehq.com/@observablehq/duckdb) to make data wrangling a bit more natural for folks who like SQL more than JavaScript.`
+```
+
+```{ojs}
+null_island = {
+  const container = DOM.element("div", {
+    style: `width:${width}px;height:${width / 1.5}px`
+  });
+  yield container;
+
+  const map = L.map(container).setView([0, 0], 3);
+
+  const osmLayer = L.tileLayer(
+    "https://api.mapbox.com/styles/v1/hrbrmstr/clas1yefm000114nkre5mi05i/tiles/256/{z}/{x}/{y}@2x?access_token=pk.eyJ1IjoiaHJicm1zdHIiLCJhIjoic3pxWkFKUSJ9.h4PUVtrz4-oN1ZlDsEXEUQ",
+    {
+      attribution:
+        '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> Contributors',
+      maxZoom: 18
+    }
+  ).addTo(map);
+
+  for (var i = 0; i < buoys.length; i++) {
+    const lat = buoys[i].lat;
+    const lng = buoys[i].lng;
+    const res =
+      await db.sql`SELECT temp FROM buoys WHERE lng = ${lng} AND lat = ${lat}`;
+    const tspark = res.map((d) => d.temp).filter((d) => d);
+    const tmed = d3.median(tspark);
+    const mark =
+      lat == 0 && lng == 0
+        ? `<img src='${island_url}'/> <span class="island">Null Island</span>`
+        : `<img src='${buoy_url}'/>`;
+    const popup = md`
+${mark}
+<br/>
+<b>Buoy location</b>: <span class='coords'>${lng}, ${lat}</span><br/>
+<b>Median Temp</b>: ${d3.format(".2")(tmed) + "°C"}
+<br/>
+<img class="buoySpark" src='${line(tspark, {
+      width: 125,
+      height: 25,
+      color: { threshold: { value: tmed, above: "#b85357", below: "#5986b6" } }
+    }).toDataURL()}'/>
+`;
+
+    const marker = new L.marker([lat, lng], {
+      icon: lat == 0 && lng == 0 ? islandIcon : buoyIcon
+    })
+      .bindPopup(popup)
+      .addTo(map);
+  }
+}
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+buoys = db.sql`SELECT DISTINCT lng, lat FROM buoys`
+```
+
+```{ojs}
+db = DuckDBClient.of({
+  buoys: await FileAttachment("null-buoy-temp@1.csv").csv({ typed: true })
+})
+```
+
+```{ojs}
+islandIcon = new Icon({ iconUrl: island_url })
+```
+
+```{ojs}
+buoyIcon = new Icon({ iconUrl: buoy_url })
+```
+
+```{ojs}
+island_url = FileAttachment("icons8-island-on-water-48.png").url()
+```
+
+```{ojs}
+buoy_url = FileAttachment("buoy-small.png").url()
+```
+
+```{ojs}
+md`### R code to wrangle the PIRATA NetCDF files`
+```
+
+```{ojs}
+md````r
+library(ncdf4) 
+
+list.files("~/Data/pirata", "cdf$", full.names = TRUE) |> 
+  lapply(nc_open) -> ncd
+
+do.call(
+  rbind.data.frame,
+  lapply(ncd, \(.x) {
+    data.frame(
+      lng = ncvar_get(.x, "lon"),
+      lat = ncvar_get(.x, "lat"),
+      ts = ncvar_get(.x, "time") + as.Date("1998-02-15"),
+      temp = ncvar_get(.x, "T_25")
+    ) |> 
+      within(
+        lng <- ifelse(lng > 180, -360 + lng, lng)
+      )
+  })
+) |> 
+  write.csv("~/Data/null-buoy-temp.csv", row.names = FALSE)
+````
+```
+
+```{ojs}
+import {
+  L,
+  style,
+  Icon
+} from "@hrbrmstr/2022-30-day-map-challenge-day-13-5-minute-map-sbwu"
+```
+
+```{ojs}
+import { line } from "@hamzaamjad/tiny-charts"
+```
+
+```{ojs}
+style
+```
+
+```{ojs}
+html`
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Beth+Ellen&display=swap" rel="stylesheet">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+font-family: "Fira Code", monospace;
+}
+
+.island {
+  font-family: "Beth Ellen";
+  font-size: 24pt;
+}
+</style>
+`
+```
+

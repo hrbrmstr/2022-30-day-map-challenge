@@ -1,0 +1,151 @@
+---
+title: '2022 30-day Map Challenge • Day 19 • Globe • 🌎🔊 Earthquakes'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-19-globe-earthquakes'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 19 • Globe • 🌎🔊 Earthquakes`
+```
+
+```{ojs}
+md`
+I've done far too many globes in this year's challenge, but let's continue the use of Three.js and Globe.jl for good measure.
+
+The USGS has a [lovely earthquake portal](https://earthquake.usgs.gov/earthquakes/map/?range=month&magnitude=4.5) where you can browse recent and historical quake data. Quake terminology is not something most of us deal with every day, so [here's a spiffy glossary](https://earthquake.usgs.gov/data/comcat/) in the event you want to dig into some of the dataset column names.
+
+I grabbed the "significant" quakes in the past 30 days (retrieved 2022-11-19) and then grabbed the "magnitude 4.5+" quakes in that same time period. You can choose between the datasets in the radio button below.
+
+Note the [tradeoff I had to make](https://observablehq.com/d/808ec1f4e02613d5#mag45) in the data for the "magnitude 4.5+" dataset. Please feel free to remove the `filter()` (it won't impact this copy of the notebook) and see how your browser slows to a halt (mine sure did).`
+```
+
+```{ojs}
+paragraph1 = md`I "cheated" with \`propagationSpeed\` and \`repeatPeriod\` since IANAS<sup>[[1](#footnote1)]</sup>`
+```
+
+```{ojs}
+md`## Earthquakes (Previous 30 Days)`
+```
+
+```{ojs}
+viewof mags = Inputs.radio(["Significant Quakes", "5+ Magnitude Quakes"], {
+  label: "Select Quake Data",
+  value: "Significant Quakes"
+})
+```
+
+```{ojs}
+quaking = {
+  const div = document.createElement("div");
+  yield div;
+
+  const quake = Globe()
+    .height(width * 0.9)
+    .width(width)
+    .globeImageUrl(earthNight)
+    .ringsData(mags == "Significant Quakes" ? sig : mag45)
+    .ringColor(() => shakeColor)
+    .ringMaxRadius("maxR")
+    .ringPropagationSpeed("propagationSpeed")
+    .ringRepeatPeriod("repeatPeriod");
+
+  quake(div);
+
+  quake.controls().autoRotateSpeed = 1; // play with this value
+  quake.controls().autoRotate = true;
+
+  return div;
+}
+```
+
+```{ojs}
+md``ringColor` (below) expects a __"ring object accessor function or attribute for the stroke color of each ring."_
+
+It also _"supports radial color gradients by passing an array of colors, or a color interpolator function."_
+
+We tell it how far away time-wise the propogation is and this one changes the alpha so it "fades".`
+```
+
+```{ojs}
+shakeColor = (time) => `rgba(255,100,50,${Math.sqrt(1 - time)})`
+```
+
+```{ojs}
+sig = significant_month1.map((d) => ({
+  lat: d.latitude,
+  lng: d.longitude,
+  maxR: d.mag,
+  propagationSpeed: (d.mag / 10 - 0.75) * 25 + 1,
+  repeatPeriod: Math.random() * 1000 + 350
+}))
+```
+
+```{ojs}
+mag45 = mag45Month
+  .filter((d) => d.mag >= 5)
+  .map((d) => ({
+    lat: d.latitude,
+    lng: d.longitude,
+    maxR: d.mag,
+    propagationSpeed: (d.mag / 10 - 0.75) * 25 + 1,
+    repeatPeriod: Math.random() * 1000 + 350
+  }))
+```
+
+```{ojs}
+md`## "Significant" Quakes (Past Month; Retrieved 2022-11-19)`
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+md`## 4.5+ Magnitude Quakes (Past Month; Retrieved 2022-11-19)`
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+{
+  const N = 10;
+  const gData = [...Array(N).keys()].map(() => ({
+    lat: (Math.random() - 0.5) * 180,
+    lng: (Math.random() - 0.5) * 360,
+    maxR: Math.random() * 20 + 3,
+    propagationSpeed: (Math.random() - 0.5) * 20 + 1,
+    repeatPeriod: Math.random() * 2000 + 200
+  }));
+  return gData;
+}
+```
+
+```{ojs}
+earthNight = FileAttachment("earth-night.jpg").url()
+```
+
+```{ojs}
+import {
+  Globe,
+  THREE
+} from "@hrbrmstr/2022-30-day-map-challenge-day-09-space-mars-junk"
+```
+
+```{ojs}
+html`
+<style>
+h1, h2 {
+max-width: 100%
+}
+</style>
+`
+```
+
+```{ojs}
+footnote1 = md`1. [^](#paragraph1) I Am Not A Seismologist`
+```
+

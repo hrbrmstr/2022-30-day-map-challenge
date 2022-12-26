@@ -1,0 +1,343 @@
+---
+title: '2022 30-day Map Challenge • Day 07 • Raster • 🥵 US Daily tmax'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-07-raster-us-daily-tmax'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 07 • Raster • 🥵 US Daily `tmax``
+```
+
+```{ojs}
+md`NOAA drops daily gridded [GeoTIFF](https://en.wikipedia.org/wiki/GeoTIFF) files for many measurements, including [observed max temperature](https://ftp.cpc.ncep.noaa.gov/GIS/GRADS_GIS/GeoTIFF/TEMP/us_tmax/).
+
+For today's challenge, I grabbed daily temps for November 1-10 for the years 2019:2022 (Nov. 10 was the last file for 2022 as of the building of this notebook).
+
+This notebook figures out the overall min/max high temp for those days across the years and displays four maps that you can slide through (or just press "Play") to see how each day differs across the years.
+
+It relies heavily on the [geotiff](https://www.npmjs.com/package/geotiff) javascript library.
+
+### Play with the threshold value!
+
+For each threshold value, the contour generator constructs a GeoJSON MultiPolygon geometry object representing the area where the input values are greater than or equal to the threshold value. Tweaking this really changes the maps.
+
+NOTE that higher threshold values will likely grind this to halt on many systems.`
+```
+
+```{ojs}
+viewof thresholds = Inputs.range([0, 200], {
+  label: "Contour threshold",
+  step: 1,
+  value: 20
+})
+```
+
+```{ojs}
+viewof dayNum = Scrubber([0, 1, 2, 3, 4, 5, 6, 7, 8, 9], {
+  autoplay: false,
+  delay: 250,
+  format: (dnum) => `November ${dnum + 1}`
+})
+```
+
+```{ojs}
+Legend(color, {
+  title: "Temperature (°C)"
+})
+```
+
+```{ojs}
+chart = html`
+<table width="100%">
+<tr>
+<td>
+<center><b>2019</b></center><br/>
+<svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${tWidth} ${tHeight}">
+  ${Array.from(
+    contours(temps[0][dayNum][0]),
+    (d) => svg`<path d="${path(d)}" fill="${color(d.value)}" />`
+  )}
+</svg></td>
+<td>
+<center><b>2020</b></center><br/>
+<svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${tWidth} ${tHeight}">
+  ${Array.from(
+    contours(temps[1][dayNum][0]),
+    (d) => svg`<path d="${path(d)}" fill="${color(d.value)}" />`
+  )}
+</svg></td>
+</tr>
+<tr>
+<td>
+<center><b>2021</b></center><br/>
+<svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${tWidth} ${tHeight}">
+  ${Array.from(
+    contours(temps[2][dayNum][0]),
+    (d) => svg`<path d="${path(d)}" fill="${color(d.value)}" />`
+  )}
+</svg></td>
+<td>
+<center><b>2022</b></center><br/>
+<svg style="width: 100%; height: auto; display: block;" viewBox="0 0 ${tWidth} ${tHeight}">
+  ${Array.from(
+    contours(temps[3][dayNum][0]),
+    (d) => svg`<path d="${path(d)}" fill="${color(d.value)}" />`
+  )}
+</svg></td>
+</tr>
+</table>
+`
+```
+
+```{ojs}
+md`Height and width are the same for all the rasters`
+```
+
+```{ojs}
+tWidth = 141
+```
+
+```{ojs}
+tHeight = 71
+```
+
+```{ojs}
+contours = d3.contours().size([tWidth, tHeight]).smooth(false).thresholds(thresholds)
+```
+
+```{ojs}
+md`We need to use this `path` function to get the points for the SVG paths. `
+```
+
+```{ojs}
+path = d3.geoPath()
+```
+
+```{ojs}
+md`We need to get the extent from the full range of data for all the days so the color scale isn't localized to a single day/map.`
+```
+
+```{ojs}
+color = d3.scaleSequential(tempMinMax, d3.interpolateMagma)
+```
+
+```{ojs}
+tempMinMax = d3.extent(temps.flatMap((d) => d.flatMap((d) => d3.extent(d[0]))))
+```
+
+```{ojs}
+temps = Promise.all([
+  Promise.all(tmax_2019.map((d) => d.readRasters())),
+  Promise.all(tmax_2020.map((d) => d.readRasters())),
+  Promise.all(tmax_2021.map((d) => d.readRasters())),
+  Promise.all(tmax_2022.map((d) => d.readRasters()))
+])
+```
+
+```{ojs}
+md`I didn't feel like having my CORS-friendly server get hammered, so I went the `FileAttachment` route. This turned out to be really annoying thanks to the need for the filenames to be actual string literals (due to the way the Observable runtime works) and all the async operations.
+
+Each day in each year array does the following (thankfully, that was easy to automate the creation of):
+
+```js
+await FileAttachment("us.tmax_nohads_ll_20191101_float.tif")
+  .arrayBuffer()
+  .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+  .then((buf) => buf.getImage())
+````
+```
+
+```{ojs}
+tmax_2019 = [
+  await FileAttachment("us.tmax_nohads_ll_20191101_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191102_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191103_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191104_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191105_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191106_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191107_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191108_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191109_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20191110_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage())
+]
+```
+
+```{ojs}
+tmax_2020 = [
+  await FileAttachment("us.tmax_nohads_ll_20201101_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201102_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201103_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201104_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201105_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201106_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201107_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201108_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201109_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20201110_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage())
+]
+```
+
+```{ojs}
+tmax_2021 = [
+  await FileAttachment("us.tmax_nohads_ll_20211001_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211002_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211003_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211004_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211005_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211006_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211007_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211008_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211009_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20211010_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage())
+]
+```
+
+```{ojs}
+tmax_2022 = [
+  await FileAttachment("us.tmax_nohads_ll_20221101_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221102_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221103_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221104_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221105_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221106_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221107_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221108_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221109_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage()),
+  await FileAttachment("us.tmax_nohads_ll_20221110_float.tif")
+    .arrayBuffer()
+    .then((buf) => GeoTIFF.fromArrayBuffer(buf))
+    .then((buf) => buf.getImage())
+]
+```
+
+```{ojs}
+GeoTIFF = require("geotiff")
+```
+
+```{ojs}
+import { Scrubber } from "@mbostock/scrubber"
+```
+
+```{ojs}
+import { Legend, Swatches } from "@d3/color-legend"
+```
+

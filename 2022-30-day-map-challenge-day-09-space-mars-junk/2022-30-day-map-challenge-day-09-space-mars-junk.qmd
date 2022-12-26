@@ -1,0 +1,152 @@
+---
+title: '2022 30-day Map Challenge • Day 09 • Space • 🚀 Mars Junk'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-09-space-mars-junk'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 09 • Space • 🚀 Mars Junk`
+```
+
+```{ojs}
+md`The Planetary Society has a [list of Mars landing sites](https://www.planetary.org/space-images/mars_landing_site_map_lakdawalla), but (ofc) [Wikipedia's is more comprehensive](https://en.wikipedia.org/wiki/List_of_Mars_landers), so we'll use that one.
+
+NOTE: The R code used to grab and clean up that horrible Wikipedia table is at the bottom of the notebook.
+
+The Solar System Scope folks have [awesome textures that represent real planetary maps](https://www.solarsystemscope.com/textures/), each in equirectangular projection.
+
+Vasco Asturiano has made working with spheres in [Three.js](https://threejs.org/) [incredibly accessible](https://github.com/vasturiano/three-globe).
+
+And, we have a "Space" challenge for `#30DayMapChallenge`.
+
+This notebook combines all four to present all (O.K., _most of_) the litter we've dropped on Mars over the years.
+
+Choose which texture resolution you'd like and zoom around the planet.
+
+NOTE: the 8K resolution texture may take _a while_ to load for some folks.`
+```
+
+```{ojs}
+viewof resolution = Inputs.radio(["2k", "8k"], {
+  label: "Select resolution",
+  value: "2k"
+})
+```
+
+```{ojs}
+{
+  // Square container that's also responsive
+  const containerWidth = width;
+  const containerHeight = width;
+  const container = html`<div style="height:${containerHeight}"></div>`;
+
+  var world = Globe()
+    .globeImageUrl(`https://solartextures.b-cdn.net/${resolution}_mars.jpg`) // grab the texture
+    .pointsData(marsJunk) // tag our data file
+    .pointAltitude(60 * 6e-4) // just far enough to see
+    .pointColor(() => "#ffffaa")
+    .pointRadius(0.5) // just wide enough to see
+    .labelsData(marsJunk)
+    .labelText("object") // Schiaparelli EDM & Opportunity Rover "overlap" so I cheated and just deleted one of the object names in the table to save me some headache here
+    .labelAltitude(110 * 6e-4) // a bit higher than the columns
+    .labelColor(() => "#ffffaa")
+    .labelSize(1.5) // should be enough to see
+    .width(containerWidth)
+    .height(containerHeight)(container);
+
+  // this is to help y'all get seasick
+  world.controls().autoRotate = true;
+  world.controls().autoRotateSpeed = 0.6;
+
+  yield container; // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/yield
+}
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+THREE = {
+  const THREE = (window.THREE =
+    await require("three@0.130.0/build/three.min.js"));
+  await require("three@0.130.0/examples/js/controls/OrbitControls.js").catch(
+    () => {}
+  );
+  return THREE;
+}
+```
+
+```{ojs}
+Globe = require("globe.gl")
+```
+
+```{ojs}
+md`R code to grab and clean up Wikipedia table of Mars landings`
+```
+
+```{ojs}
+md````r
+library(rvest)
+library(stringi)
+library(parzer)
+library(dplyr)
+library(tidyr)
+
+pg <- read_html("https://en.wikipedia.org/wiki/List_of_Mars_landers")
+
+pg |>
+  html_node(
+    xpath = ".//table[1]"
+  ) |> 
+  html_table() |> 
+  janitor::clean_names() |> 
+  select(
+    object = landers,
+    landing_date,
+    mass = mass_kg_1,
+    site = landing_site,
+    origin_country = country_of_origin
+  ) |> 
+  filter(
+    stri_detect_fixed(site, "°")
+  ) |> 
+  mutate( # some coords are mixed up and they're in terrible formats
+    lat = stri_match_first_regex(site, "([[:digit:]°′″\\.]*[ ]*[NS])")[,2],
+    lng = stri_replace_all_fixed(site, lat, "")
+  ) |> 
+  mutate_at( # clean up some extraneous char junk
+    vars(lat, lng),
+    stri_replace_all_regex,
+    pattern = "[♦, ]+",
+    replacement = ""
+  ) |> 
+  mutate( # some lng vals are 0:360 so we fix them first
+    lng = stri_replace_all_fixed(lng, c("225.71", "195", "354.4743"), -360 + c(225.71, 195, 354.4743), vectorise_all = FALSE),
+    lat = parse_lat(lat), # thank the Great Maker for {parzer}
+    lng = parse_lon(lng), # thank the Great Maker for {parzer}
+    object = case_when(
+      object == "Schiaparelli EDM" ~ "Schiaparelli EDM & Opportunity Rover",
+      object == "Opportunity rover" ~ "🚀",
+      TRUE ~ object
+    )
+  ) |> 
+  select(-site) |> 
+  readr::write_csv("~/Data/mars-junk.csv")
+````
+```
+
+```{ojs}
+html`
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+font-family: "Fira Code", monospace;
+}
+</style>
+`
+```
+

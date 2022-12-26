@@ -1,0 +1,320 @@
+---
+title: '2022 30-day Map Challenge • Day 03 •👀⚠🚨 Polygons'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-03-polygons'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 03 •<br/>👀⚠🚨 Polygons`
+```
+
+```{ojs}
+md`Today's entry uses shapefiles from NOAA to layer watches, warnings, and alerts over a U.S. map with a tooltip and click/tap actions.`
+```
+
+```{ojs}
+map = {
+  // Changing up the idiom a bit due to the Tooltip helper we're using.
+  // First we create the tooltip container
+  const container = html`<div class="tooltip-carto"></div>`;
+
+  // and add it to the DOM
+  const div = d3.select(container).append("div").classed("tooltip", true);
+
+  // now we tell the Tooltip which container to use
+  const tooltip = new Tooltip(div);
+
+  // this is just a handy idiom to use vs build the HTML inline in the js below
+  function tooltipContents(datum) {
+    return `${datum} <i class="fa fa-external-link" aria-hidden="true"></i>`;
+  }
+
+  // See day 01/02
+  const svg = d3
+    .select(container)
+    .append("svg")
+    .attr("viewBox", [-100, 0, width + 130, height])
+    .style("border", "1px solid white")
+    .style("width", width)
+    .style("height", height);
+
+  const counties = svg.append("g").selectAll(".counties").data(us_counties);
+
+  counties
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "#c3c3c3")
+    .style("stroke-width", "0.5px")
+    .style("fill", "#00000000");
+
+  const states = svg.append("g").selectAll(".states").data(us_states);
+
+  states
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "black")
+    .style("stroke-width", "1px")
+    .style("fill", "#00000000");
+
+  // now handle our geojson alerts
+  const alerts = svg.append("g").selectAll(".alerts").data(currentAll.features);
+
+  alerts
+    .enter()
+    .append("path")
+    .attr("d", albers_path_generator) // we feed the polygons to our projected path function
+    .attr("stroke", "white")
+    .style("stroke-width", "0.5px")
+    .style("fill", (d) => warning_colors[d.properties.PROD_TYPE]) // we color the polygons like NOAA would
+    .on("mouseover", (event, d) => {
+      var pts = d3.pointer(event, counties);
+      console.log(svg.node());
+      tooltip.display(d.properties.PROD_TYPE, tooltipContents); // we display the warning text and an offsite link icon
+    })
+    .on("mouseout", (event, d) => {
+      tooltip.hide();
+    })
+    .on("mousemove", (event, d) => {
+      tooltip.move(event);
+    })
+    .on("click", (event, d) => {
+      window.open(d.properties.URL, "_blank"); // when they polygon is clicked, this will open the actual alert in a new tab
+    });
+
+  return container; // rather than return the SVG node we return the HTML div container
+}
+```
+
+```{ojs}
+md`The colors come from: https://www.weather.gov/help-map`
+```
+
+```{ojs}
+warning_colors = ({
+  "Tsunami Warning": "#FD6347",
+  "Tornado Warning": "#FF0000",
+  "Extreme Wind Warning": "#FF8C00",
+  "Severe Thunderstorm Warning": "#FFA500",
+  "Flash Flood Warning": "#8B0000",
+  "Flash Flood Statement": "#8B0000",
+  "Severe Weather Statement": "#00FFFF",
+  "Shelter In Place Warning": "#FA8072",
+  "Evacuation Immediate": "#7FFF00",
+  "Civil Danger Warning": "#FFB6C1",
+  "Nuclear Power Plant Warning": "#4B0082",
+  "Radiological Hazard Warning": "#4B0082",
+  "Hazardous Materials Warning": "#4B0082",
+  "Fire Warning": "#A0522D",
+  "Civil Emergency Message": "#FFB6C1",
+  "Law Enforcement Warning": "#C0C0C0",
+  "Storm Surge Warning": "#B524F7",
+  "Hurricane Force Wind Warning": "#CD5C5C",
+  "Hurricane Warning": "#DC143C",
+  "Typhoon Warning": "#DC143C",
+  "Special Marine Warning": "#FFA500",
+  "Blizzard Warning": "#FF4500",
+  "Snow Squall Warning": "#C71585",
+  "Ice Storm Warning": "#8B008B",
+  "Winter Storm Warning": "#FF69B4",
+  "High Wind Warning": "#DAA520",
+  "Tropical Storm Warning": "#B22222",
+  "Storm Warning": "#9400D3",
+  "Tsunami Advisory": "#D2691E",
+  "Tsunami Watch": "#FF00FF",
+  "Avalanche Warning": "#1E90FF",
+  "Earthquake Warning": "#8B4513",
+  "Volcano Warning": "#2F4F4F",
+  "Ashfall Warning": "#A9A9A9",
+  "Coastal Flood Warning": "#228B22",
+  "Lakeshore Flood Warning": "#228B22",
+  "Flood Warning": "#00FF00",
+  "High Surf Warning": "#228B22",
+  "Dust Storm Warning": "#FFE4C4",
+  "Blowing Dust Warning": "#FFE4C4",
+  "Lake Effect Snow Warning": "#008B8B",
+  "Excessive Heat Warning": "#C71585",
+  "Tornado Watch": "#FFFF00",
+  "Severe Thunderstorm Watch": "#DB7093",
+  "Flash Flood Watch": "#2E8B57",
+  "Gale Warning": "#DDA0DD",
+  "Flood Statement": "#00FF00",
+  "Wind Chill Warning": "#B0C4DE",
+  "Extreme Cold Warning": "#0000FF",
+  "Hard Freeze Warning": "#9400D3",
+  "Freeze Warning": "#483D8B",
+  "Red Flag Warning": "#FF1493",
+  "Storm Surge Watch": "#DB7FF7",
+  "Hurricane Watch": "#FF00FF",
+  "Hurricane Force Wind Watch": "#9932CC",
+  "Typhoon Watch": "#FF00FF",
+  "Tropical Storm Watch": "#F08080",
+  "Storm Watch": "#FFE4B5",
+  "Hurricane Local Statement": "#FFE4B5",
+  "Typhoon Local Statement": "#FFE4B5",
+  "Tropical Storm Local Statement": "#FFE4B5",
+  "Tropical Depression Local Statement": "#FFE4B5",
+  "Avalanche Advisory": "#CD853F",
+  "Winter Weather Advisory": "#7B68EE",
+  "Wind Chill Advisory": "#AFEEEE",
+  "Heat Advisory": "#FF7F50",
+  "Urban and Small Stream Flood Advisory": "#00FF7F",
+  "Small Stream Flood Advisory": "#00FF7F",
+  "Arroyo and Small Stream Flood Advisory": "#00FF7F",
+  "Flood Advisory": "#00FF7F",
+  "Hydrologic Advisory": "#00FF7F",
+  "Lakeshore Flood Advisory": "#7CFC00",
+  "Coastal Flood Advisory": "#7CFC00",
+  "High Surf Advisory": "#BA55D3",
+  "Heavy Freezing Spray Warning": "#00BFFF",
+  "Dense Fog Advisory": "#708090",
+  "Dense Smoke Advisory": "#F0E68C",
+  "Small Craft Advisory For Hazardous Seas": "#D8BFD8",
+  "Small Craft Advisory for Rough Bar": "#D8BFD8",
+  "Small Craft Advisory for Winds": "#D8BFD8",
+  "Small Craft Advisory": "#D8BFD8",
+  "Brisk Wind Advisory": "#D8BFD8",
+  "Hazardous Seas Warning": "#D8BFD8",
+  "Dust Advisory": "#BDB76B",
+  "Blowing Dust Advisory": "#BDB76B",
+  "Lake Wind Advisory": "#D2B48C",
+  "Wind Advisory": "#D2B48C",
+  "Frost Advisory": "#6495ED",
+  "Ashfall Advisory": "#696969",
+  "Freezing Fog Advisory": "#008080",
+  "Freezing Spray Advisory": "#00BFFF",
+  "Low Water Advisory": "#A52A2A",
+  "Local Area Emergency": "#C0C0C0",
+  "Avalanche Watch": "#F4A460",
+  "Blizzard Watch": "#ADFF2F",
+  "Rip Current Statement": "#40E0D0",
+  "Beach Hazards Statement": "#40E0D0",
+  "Gale Watch": "#FFC0CB",
+  "Winter Storm Watch": "#4682B4",
+  "Hazardous Seas Watch": "#483D8B",
+  "Heavy Freezing Spray Watch": "#BC8F8F",
+  "Coastal Flood Watch": "#66CDAA",
+  "Lakeshore Flood Watch": "#66CDAA",
+  "Flood Watch": "#2E8B57",
+  "High Wind Watch": "#B8860B",
+  "Excessive Heat Watch": "#800000",
+  "Extreme Cold Watch": "#0000FF",
+  "Wind Chill Watch": "#5F9EA0",
+  "Lake Effect Snow Watch": "#87CEFA",
+  "Hard Freeze Watch": "#4169E1",
+  "Freeze Watch": "#00FFFF",
+  "Fire Weather Watch": "#FFDEAD",
+  "Extreme Fire Danger": "#E9967A",
+  "911 Telephone Outage": "#C0C0C0",
+  "Coastal Flood Statement": "#6B8E23",
+  "Lakeshore Flood Statement": "#6B8E23",
+  "Special Weather Statement": "#FFE4B5",
+  "Marine Weather Statement": "#FFDAB9",
+  "Air Quality Alert": "#808080",
+  "Air Stagnation Advisory": "#808080",
+  "Hazardous Weather Outlook": "#EEE8AA",
+  "Hydrologic Outlook": "#90EE90",
+  "Short Term Forecast": "#98FB98",
+  "Administrative Message": "#C0C0C0",
+  "Test": "#F0FFFF",
+  "Child Abduction Emergency": "#FFFFFF",
+  "Blue Alert": "#FFFFFF"
+})
+```
+
+```{ojs}
+md`The `warning_colors` object was made with this R code
+
+```r
+library(rvest)
+
+pg <- read_html("https://www.weather.gov/help-map")
+
+color_table <- html_node(pg, xpath = ".//table/tbody")
+
+setNames(
+  paste0(
+    "#", color_table |> 
+      html_nodes(xpath = ".//td[6]") |>
+      html_text(trim = TRUE), sep=""
+  ),
+  color_table |> 
+    html_nodes(xpath = ".//td[1]") |>
+    html_text(trim = TRUE)
+) |> 
+  as.list() |> 
+  jsonlite::toJSON(pretty = TRUE, auto_unbox = TRUE) |> 
+  clipr::write_clip()
+````
+```
+
+```{ojs}
+md`This comes from my GH repo: https://github.com/hrbrmstr/noaa-alerts-sp-to-geojson
+
+Unfortunately CORS policies mean it's hard to pull this in from GH (I may setup a CORS endpoint for it on my website), so it's a static attached file. I wrote a small script to turn the _very_ detailed polygons NOAA makes into something much smaller since we aren't using
+it for local public safety.`
+```
+
+```{ojs}
+currentAll = FileAttachment("current-all.geo.json").json()
+```
+
+```{ojs}
+md`We need an Albers USA path generator for our unprojected alert polygons`
+```
+
+```{ojs}
+albers_path_generator = d3.geoPath().projection(projection)
+```
+
+```{ojs}
+md`One _powerful_ feature of Observable is that we can re-use a ton of bits from previous work, making this notebook a bit smaller than it otherwise would be.`
+```
+
+```{ojs}
+import {
+  path,
+  width,
+  height,
+  projection,
+  us_states,
+  us_counties
+} from "@hrbrmstr/2022-30-day-map-challenge-day-02-lines-of-sedition"
+```
+
+```{ojs}
+md`I am not making my own tooltips when I can use someone elses.`
+```
+
+```{ojs}
+import {Tooltip} from "@clhenrick/tooltip-component"
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

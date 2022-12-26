@@ -1,0 +1,191 @@
+---
+title: '2022 30-day Map Challenge • Day 23 • Migration • 🚶🏼🚷 U.S. Southern Border Encounters'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-23-migration-u-s-southern-borde'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 23 • Migration • 🚶🏼🚷 U.S. Southern Border Encounters`
+```
+
+```{ojs}
+md`The U.S. Customs & Border Control department and policies leave much to be desired on many fronts, but they do maintain public datasets on border "encounters", and they are fairly good about keeping the data updated.
+
+The [Southwest Land Border](https://www.cbp.gov/newsroom/stats/southwest-land-border-encounters) is a contentious topic.
+
+Those that lean towards authoritarianism (i.e. the GOP, Second Amendment worshippers, MAGA folks) seem to want the border permanently closed and impenetrable kill-fences erected (which is odd since they couldn't even get their infamous "wall" built when they had a POTUS puppet in charge). We'll call these folks border hawks since there is nothing "right" about them, so I refuse to use that term.
+
+Those that lean towards rampant socialism (i.e. far too many Democrats) seem to want no controls on migrant flow, which is an equally daft position for what should be obvious reasons. We'll call these folks border doves.
+
+Of late, the hawks are using the border as a cudgel, claiming that a never-ending sea of humans, armed and dangerous, are making a mockery of immigration control. The doves are more like ostriches, since they seem to have their head in the sand when it comes to managing the border and refuse to acknowledge what the data in today's `#30DayMapChallenge` entry shows.
+
+We're focusing solely on the border, which Texas (_shocker_) gladly provides as a standalone file. Using the 2019-current CBP encounter data, we're simply scaling the border size based on the monthly encounters (min/max: `${JSON.stringify(d3.extent(migMap.values()))}`). Scrub or play through the data, check out the border, and then look at the charts below (NOTE: I haven't had time to explain the odd gap in CBP data which your eyes will immediately be drawn to).
+
+There is a real problem, but no "adults" in charge seem to be willing to do anything about it, except use the humans involved as pawns in what appears to be a never-ending political game.`
+```
+
+```{ojs}
+viewof month = Scrubber(migMap.keys(), {
+  autoplay: false,
+  delay: 250,
+  value: "2019-01-01",
+  format: (d) => d.substr(0, 7)
+})
+```
+
+```{ojs}
+map = {
+  const currMonth = cumulativeMigration.filter(
+    (d) => d.yearmon.toISOString().substr(0, 10) == month
+  );
+
+  const currMonStr = currMonth[0].yearmon.toISOString().substr(0, 7);
+  const currMonEnc = d3.format(",")(currMonth[0].encounters);
+
+  return bertin.draw({
+    params: {
+      projection: d3.geoAlbers(),
+      background: "#e3e3e3",
+      margin: 10
+    },
+    layers: [
+      {
+        type: "layer",
+        geojson: border,
+        strokeWidth: lineScale(migMap.get(month)),
+        stroke: "black"
+      },
+      {
+        type: "header",
+        text: `${currMonStr}: ${currMonEnc} Border Encounters`
+      },
+      {
+        type: "text",
+        text: "United States",
+        position: "topright",
+        fontSize: 48,
+        margin: 60
+      },
+      {
+        type: "text",
+        text: "Mexico",
+        position: "bottomleft",
+        fontSize: 48,
+        margin: 200
+      }
+    ]
+  });
+}
+```
+
+```{ojs}
+md`### Monthly Encounters At The Southern Border (2019-Sept 2022)`
+```
+
+```{ojs}
+Plot.plot({
+  grid: true,
+  marginLeft: 60,
+  marks: [
+    Plot.ruleY([0]),
+    Plot.lineY(cumulativeMigration, {
+      x: "yearmon",
+      y: "encounters"
+    }),
+    Plot.dot(
+      cumulativeMigration.filter(
+        (d) => d.yearmon.toISOString().substr(0, 10) == month
+      ),
+      { x: "yearmon", y: "encounters", stroke: "black" }
+    )
+  ]
+})
+```
+
+```{ojs}
+md`### Cumulative Encounters At The Southern Border (2019-Sept 2022)`
+```
+
+```{ojs}
+Plot.plot({
+  grid: true,
+  marginLeft: 70,
+  marks: [
+    Plot.ruleY([0]),
+    Plot.lineY(cumulativeMigration, {
+      x: "yearmon",
+      y: "cumulative_encounters"
+    })
+  ]
+})
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+lineScale = d3.scaleLinear().domain(d3.extent(migMap.values())).range([0.5, 30])
+```
+
+```{ojs}
+cumulativeMigration = db.sql`
+SELECT
+  *,
+  SUM(encounters) OVER (ORDER BY yearmon ROWS UNBOUNDED PRECEDING) AS cumulative_encounters
+FROM (
+  SELECT yearmon, SUM(n) AS encounters
+  FROM migration
+  GROUP BY "yearmon"
+)
+`
+```
+
+```{ojs}
+migMap = {
+  const monthlyTotalMigration = await db.sql`
+SELECT 
+  yearmon,
+  SUM(n) AS encounters
+FROM 
+  migration
+GROUP BY
+  yearmon
+`;
+  return new Map(
+    monthlyTotalMigration.map((d) => [
+      d.yearmon.toISOString().substring(0, 10),
+      d.encounters
+    ])
+  );
+}
+```
+
+```{ojs}
+db = DuckDBClient.of({ migration: migration1 })
+```
+
+```{ojs}
+border = FileAttachment("border.geojson").json()
+```
+
+```{ojs}
+bertin = require("bertin@1.5.4")
+```
+
+```{ojs}
+import { Scrubber } from "@mbostock/scrubber"
+```
+
+```{ojs}
+html`
+<style>
+h2, h3 {
+  width: 100%
+}
+</style>
+`
+```
+

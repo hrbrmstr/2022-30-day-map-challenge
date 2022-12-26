@@ -1,0 +1,168 @@
+---
+title: '2022 30-day Map Challenge • Day 15 • Food/drink • The 🌾 Insecure States of 🇺🇸'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-15-food-drink-the-insecure-stat'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 15 • Food/drink • The 🌾 Insecure States of 🇺🇸`
+```
+
+```{ojs}
+md`Food insecurity is a perennial issue everywhere, including, oddly, in the richest nation on the planet. 
+
+Than pandemic added a great deal of stress to an already insecure situation, and the unnecessary inflation spike — which was caused, largely, by corporate greed — of 2022 has made food even more scarce for millions of Americans.
+
+[Feeding America](https://www.feedingamerica.org) does a great job both feeding humans and being data-driven about the problem of insecurity. 
+
+Today's map isn't nouveau, but it uses data from Feeding America to give you an idea of where **`${num_insecure}`** humans in the U.S. regularly go hungry.
+
+Hover over any county (the state boundaries are deliberately hidden, because hunger abounds in every state). Click/tap on any county to go to Feeding America's site to learn how you can seek assistance if you are in need, or how you can help those in need.`
+```
+
+```{ojs}
+Legend(fillScale, {
+  title: "Food Insecurity (% County Population)",
+  width: 600,
+  tickFormat: "0.1%"
+})
+```
+
+```{ojs}
+insecure = {
+  const container = html`<div class="tooltip-food"></div>`;
+
+  const div = d3.select(container).append("div").classed("tooltip", true);
+
+  const tooltip = new Tooltip(div);
+
+  function tooltipContents(d) {
+    return `${d}`;
+  }
+
+  const svg = d3
+    .select(container)
+    .append("svg")
+    .attr("viewBox", [-100, 0, width + 130, height])
+    .style("width", width)
+    .style("height", height);
+
+  const counties = svg.append("g").selectAll(".counties").data(us_counties);
+
+  counties
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .style("stroke", "white")
+    .style("stroke-width", "0.25px")
+    .style("fill", (d) =>
+      fillScale(insecurity[d.id]) === undefined
+        ? "#c2c2c2"
+        : fillScale(insecurity[d.id].insecurity)
+    )
+    .on("mouseover", (event, d) => {
+      tooltip.display(insecurity[d.id].num, tooltipContents);
+    })
+    .on("mouseout", (event, d) => {
+      tooltip.hide();
+    })
+    .on("mousemove", (event, d) => {
+      tooltip.move(event);
+    })
+    .on("click", (event, d) => {
+      window.open(
+        "https://www.feedingamerica.org/find-your-local-foodbank",
+        "_blank"
+      );
+    });
+  return container;
+}
+```
+
+```{ojs}
+insecurity = feedingAmericaInsecurity2022.county.reduce((m, d) => {
+  m[d.fips] = {
+    insecurity: d.insecurity,
+    num:
+      "<b>" +
+      d3.format(",")(Math.round(d.population * d.insecurity)) +
+      "</b>" +
+      ` (${d3.format(".0%")(d.insecurity)}) residents of ${
+        d.name
+      } county are food insecure`
+  };
+  return m;
+}, {})
+```
+
+```{ojs}
+feedingAmericaInsecurity2022 = FileAttachment(
+  "feeding-america-insecurity-2022.geojson"
+).json()
+```
+
+```{ojs}
+import {
+  path,
+  width,
+  height,
+  projection,
+  us_states,
+  us_counties
+} from "@hrbrmstr/2022-30-day-map-challenge-day-02-lines-of-sedition"
+```
+
+```{ojs}
+import { Legend } from "@d3/color-legend"
+```
+
+```{ojs}
+import { Tooltip } from "@clhenrick/tooltip-component"
+```
+
+```{ojs}
+fillScale = d3
+  .scaleThreshold()
+  .domain([0, 0.1, 0.2, 0.3, 0.4])
+  .range(d3.schemeYlOrRd[5])
+```
+
+```{ojs}
+num_insecure = d3.format(",")(
+  Math.round(
+    d3.sum(
+      feedingAmericaInsecurity2022.county.map(
+        (d) => d.insecurity * d.population
+      )
+    )
+  )
+)
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+div.tooltip-food > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

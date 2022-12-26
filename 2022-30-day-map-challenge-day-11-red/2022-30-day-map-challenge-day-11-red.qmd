@@ -1,0 +1,58 @@
+---
+title: '2022 30-day Map Challenge • Day 11 • 🦞 Red'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-11-red'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 11 • 🦞 <span style='color:red'>Red</span>`
+```
+
+```{ojs}
+md`I'm using data from an older [Portland Press Herald story on Maine 🦞 exports](https://specialprojects.pressherald.com/exports/). Getting current data is expen$ive and my main[e] (heh) reason for doing this particular post is to show off one of the strengths of Observable: **component reuse**.
+
+I've reused components in previous `#30DayMapChallenge` entries, but if you scroll down, you'll see that the only resource I "created" for this entry is the `lobster.json` (which I stole from PPH's vis javascript).
+
+I left the "wart" that is the "no country outlines" on this, since I wanted to emphasize the re-use. You can grab the `Choropleth()` function source from the imported @d3 notebook to change the behavior/add outlines.
+
+I will also note that I have yet to figure out how to get [`currentColor`](https://css-tricks.com/currentcolor/) to cascade to SVG `path` elements. Drop a comment on this notebook if you can point me in the right direction! (pls)`
+```
+
+```{ojs}
+key = Legend(chart.scales.color, { title: "Maine Lobster Exports (2013; lbs; log scale)" })
+```
+
+```{ojs}
+chart = Choropleth(lobster, {
+  id: (d) => d.country,
+  value: (d) => d.yeild,
+  scale: d3.scaleSequentialLog,
+  range: d3.interpolateReds,
+  features: countries,
+  featureId: (d) => d.properties.name, // i.e., not ISO 3166-1 numeric
+  borders: countrymesh,
+  projection: d3.geoEqualEarth(),
+  stroke: "#2b2b2b",
+  strokeWidth: "0.5px",
+  width
+})
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+lobster = FileAttachment("lobster.json").json()
+```
+
+```{ojs}
+import { countries, world, countrymesh } from "@d3/world-choropleth"
+```
+
+```{ojs}
+import { Choropleth, Legend } from "@d3/choropleth"
+```
+

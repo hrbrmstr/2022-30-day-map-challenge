@@ -1,0 +1,202 @@
+---
+title: '2022 30-day Map Challenge • Day 12 • Scale • 🛬 International Tourism: Arrivals'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-12-scale-international-tourism'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 12 • Scale • 🛬 International Tourism: Arrivals`
+```
+
+```{ojs}
+md`The World Bank has _scads_ of global _(obvsly, since 'World')_ statistics, including one on the [number of international tourism arrivals by year](https://data.worldbank.org/indicator/ST.INT.ARVL?end=2020&start=1995&view=chart). Since the theme of the day is "scale", we can pick one of the tracked observations and use it to make a bubble cartogram which will size-up circles to the number of arrivals for the given year. I chose the number of tourism arrivals in a given country.
+
+I've limited the year range to 2000:2020 for brevity. 2020 is the last year with this data (the World Bank does a good job ensuring data quality/accuracy, so it takes time to add new years for some of the variables it tracks). 2020 also happened to be a very bad year for international travel, something you'll see if you scrub through to the end.
+
+To make the choropleth, we're going to use the ZOMGOSH I CANNOT BELIEVE HOW EASY IT IS TO USE [Bertin.js](https://github.com/neocarto/bertin) library. It supports [Dorling](https://www.dannydorling.org/wp-content/files/dannydorling_publication_id1448.pdf) cartograms, which is a _"method of representing absolute quantitative data with proportional circles, while avoiding the superimposition of these."_ 
+
+This means each bubble will be in the general area of the centroid of each country, but will not necessarily be at the center. I prefer these cartograms to be on a real map, which I believe helps orient the reader. The folks who made the Bertin.js library seem to think so, too.
+
+We'll also use the [Bertin projection](https://visionscarto.net/bertin-projection-1953). It has a _"regional compromise in which the compromise is no longer homogeneous but is modified for a larger deformation of the oceans, to give a lesser deformation of the continents."_ — <span style='font-size:8pt'>Jacques Bertin, Semiology of Graphics, 1967 (translated by William J. Berg, 1983).</spans>
+
+As the first link in the previous ❡ notes, this projection is commonly used for geopolitical maps and aims to  present the lowest possible distortion at the North Pole.
+
+I like it because it disorients us a bit from traditional map views (like Google Maps' Web Mercator), and forces a more deliberate map viewing.
+
+R code for grabbing the World Bank data via the API is at the end.`
+```
+
+```{ojs}
+md`**Select year or press 'Play':**`
+```
+
+```{ojs}
+viewof year = Scrubber(
+  [...new Set(worldBankTourismArrivals20002020.map((d) => d.year))],
+  {
+    autoplay: false,
+    delay: 250,
+    value: 2000
+  }
+)
+```
+
+```{ojs}
+choro = bertin.draw({
+  params: { projection: d3.geoBertin1953() },
+  layers: [
+    { type: "header", text: `International Tourism: Arrivals; ${year}` },
+    {
+      type: "bubble",
+      geojson: arrivals,
+      values: "arrivals",
+      k: 50,
+      fixmax: most_arrivals,
+      dorling: true,
+      fill: "#6a3d9aaa",
+      leg_x: 680,
+      leg_y: 410,
+      leg_fontSize2: 10,
+      leg_title: `Number of tourism
+arrivals by city`,
+      tooltip: ["$country", "$arrivals_pretty", "arrivals"],
+      leg_round: -2
+    },
+
+    {
+      type: "layer",
+      geojson: countries,
+      fill: "white",
+      fillOpacity: 0.6,
+      stroke: "#b3b3b3"
+    },
+    { type: "graticule" },
+    { type: "outline" }
+  ]
+})
+```
+
+```{ojs}
+md`### International Tourism, Arrivals (annual; 2000:2020)`
+```
+
+```{ojs}
+
+```
+
+```{ojs}
+arrival_filtered = worldBankTourismArrivals20002020
+  .filter((d) => d.year == year)
+  .map((d) => {
+    d.arrivals_pretty = d3.format(",")(d.arrivals) + ` (${d.year})`;
+    return d;
+  })
+```
+
+```{ojs}
+md`This lets us have the same max value for each map so the scale is accurate across all the maps.`
+```
+
+```{ojs}
+most_arrivals = 250000000 // d3.max(worldBankTourismArrivals20002020.map((d) => d.arrivals))
+```
+
+```{ojs}
+arrivals = bertin.table2geo(arrival_filtered, "lat", "lng")
+```
+
+```{ojs}
+import { Scrubber } from "@mbostock/scrubber"
+```
+
+```{ojs}
+import { bertin, countries } from "@neocartocnrs/bertin-js-dorling-cartogram"
+```
+
+```{ojs}
+d3 = require("d3@7", "d3-geo-projection@4")
+```
+
+```{ojs}
+function roundUp(num, precision) {
+  precision = Math.pow(10, precision);
+  return Math.ceil(num * precision) / precision;
+}
+```
+
+```{ojs}
+md`R code used to get the World Bank data:`
+```
+
+```{ojs}
+md````r
+library(sf)
+library(WDI)
+library(tidyverse)
+
+WDIsearch("arrivals")
+##        indicator                                      name
+## 17823 ST.INT.ARVL International tourism, number of arrivals
+
+WDI(
+  indicator = "ST.INT.ARVL", 
+  country = "all",
+  start = 2000, 
+  end = 2020,
+  extra = TRUE # this gets us lat/lng "centroids"
+) -> tourism
+
+tourism |> 
+  as_tibble() |> 
+  rename(
+    lat = latitude,
+    lng = longitude,
+    arrivals = ST.INT.ARVL
+  ) |> 
+  filter(
+    region != "Aggregates",
+    !is.na(arrivals),
+    !is.na(lat),
+  ) |> 
+  select(
+    year,
+    country,
+    arrivals,
+    lat,
+    lng
+  ) |> 
+  arrange(
+    country,
+    year
+  ) |> 
+  write_csv("~/Data/world-bank-tourism-arrivals-2000-2020.csv")
+````
+```
+
+```{ojs}
+css = html`
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css" integrity="sha256-XoaMnoYC5TH6/+ihMEnospgm0J1PM/nioxbOUdnM8HY=" crossorigin="anonymous">
+
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;700&family=JetBrains+Mono:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
+code {
+  font-family: "Fira Code", monospace;
+}
+
+div.tooltip-carto > div.tooltip {
+  font-family: sans-serif;
+  font-size: 9pt;
+  position: fixed;
+  display: none;
+  padding: 12px 6px;
+  background: #fff;
+  border: 1px solid #333;
+  pointer-events: none;
+}
+
+</style>`
+```
+

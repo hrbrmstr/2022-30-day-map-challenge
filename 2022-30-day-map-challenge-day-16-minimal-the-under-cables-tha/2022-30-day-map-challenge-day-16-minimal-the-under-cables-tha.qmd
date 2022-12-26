@@ -1,0 +1,85 @@
+---
+title: '2022 30-day Map Challenge • Day 16 • Minimal • The Under 🌊 Cables That Define Us'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-16-minimal-the-under-cables-tha'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 16 • Minimal • The Under 🌊 Cables That Define Us`
+```
+
+```{ojs}
+md`[TeleGeography](https://www2.telegeography.com/) does a great job maintaining the [Submarine Cable Map](https://www.submarinecablemap.com) site, and makes the cable data freely available. No, really! Go get it for yourself:
+
+```shell
+$ wget https://www.submarinecablemap.com/api/v3/cable/cable-geo.json
+```
+
+That file is attached to this notebook.
+
+Today's theme is "minimal", so we'll let these undersea cables define the world for us.
+
+No basemap.
+
+No other adornments.
+
+No labels.
+
+Just cables.
+
+Using `import`s from the Mars entry.`
+```
+
+```{ojs}
+{
+  const div = document.createElement("div");
+  yield div;
+
+  const cableMapGlobe = Globe()
+    .height(width)
+    .width(width)
+    .pathsData(cableGeoPaths)
+    .pathPoints("coords")
+    .pathPointLat((p) => p[1])
+    .pathPointLng((p) => p[0])
+    .pathColor((path) => path.properties.color);
+
+  cableMapGlobe(div);
+
+  return div;
+}
+```
+
+```{ojs}
+md`Three.js/Globe.js needs path arrays to draw the paths properly, so we need to transform the MultiLineString features into said arrays. Thankfully, we do not need to do any more maths than that.`
+```
+
+```{ojs}
+cableGeoPaths = {
+  // for each "feature" (path) make an array of coordinates; keep properties so we can use the color
+  cableGeo.features.forEach(({ geometry, properties }) => {
+    geometry.coordinates.forEach((coords) =>
+      cable_paths.push({ coords, properties })
+    );
+  });
+  return cable_paths;
+}
+```
+
+```{ojs}
+mutable cable_paths = []
+```
+
+```{ojs}
+cableGeo = FileAttachment("cable-geo.json").json()
+```
+
+```{ojs}
+import {
+  Globe,
+  THREE
+} from "@hrbrmstr/2022-30-day-map-challenge-day-09-space-mars-junk"
+```
+

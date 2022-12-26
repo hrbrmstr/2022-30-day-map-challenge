@@ -1,0 +1,132 @@
+---
+title: '2022 30-day Map Challenge • Day 01 • Maine CWOP Weather Station Locations'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-01-maine-cwop-weather-station-l'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 01 • Maine CWOP Weather Station Locations`
+```
+
+```{ojs}
+md`As in previous years, I intend to — where possible —&nbsp;focus on Maine for map production.
+
+I'm also going to try to do most of the work in Observable, though I may revert to {ojs} blocks in Quarto for some and pure R in others.
+
+I'll also try to document the process a bit more in these Observable notebooks so others can riff from it.`
+```
+
+```{ojs}
+md`We're starting off super small. Nothing really fancy. Hopefully this will encourage more folks to try Observable. I found the more complex examples to be a bit daunting when Observable first launched.`
+```
+
+```{ojs}
+md`### Maine [CWOP](https://www.weather.gov/iln/cwop) Weather Station Locations `
+```
+
+```{ojs}
+md`_Expand the code block for the map to see the inline comments._`
+```
+
+```{ojs}
+me_map = {
+  // first we make the core SVG element we'll be returning
+  const svg = d3
+    .create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("border", "1px solid white")
+    .style("width", width)
+    .style("height", height);
+
+  // now we focus on drawing the counties
+  var counties = svg.append("g").selectAll(".land").data(mecounties);
+
+  // we paint the white paths with a random-ish blue fill;
+  // adding the `id` makes it possible to process the SVG further either in a web page or with SVG tools if we d/l it
+  counties
+    .enter()
+    .append("path")
+    .attr("d", path)
+    .attr("id", (d) => d.properties.NAME)
+    .style("stroke", "white")
+    .style("stroke-width", "1px")
+    .style("fill", "#B3CEFF");
+
+  // points are just filled circles
+  // if we were going to do more with them we'd make a variable to hold them
+  // we call the projection function we made to get the projected X & Y values
+  // you can change the `r` and `fill` values to see what they do.
+  // adding a `title` to the circle means we get a free popup on (somewhat extended) hover or mobile tap
+  svg
+    .selectAll("circle")
+    .data(meCwop)
+    .enter()
+    .append("circle")
+    .attr("cx", (d) => projection([d.lng, d.lat])[0])
+    .attr("cy", (d) => projection([d.lng, d.lat])[1])
+    .attr("r", "2px")
+    .attr("fill", "black")
+    .append("title")
+    .text((d) => d.loc);
+
+  return svg.node(); // we return the node so the page can render it
+}
+```
+
+```{ojs}
+md`The [CWOP raw station data](http://www.wxqa.com/members.txt) is in a terrible, old format that isn't worth showing wrangling code for. I grabbed it, yanked Maine locations out of it, then geolocated the towns with [geocodio](https://www.geocod.io/) (it has a _generous_ free tier and [I have an R package](https://github.com/hrbrmstr/rgeocodio) for it.)`
+```
+
+```{ojs}
+meCwop = FileAttachment("me-cwop@1.json").json()
+```
+
+```{ojs}
+md`These geo-oriented JSON files can haver many features, so we use this to pull out the county polygons.`
+```
+
+```{ojs}
+mecounties = topojson.feature(
+  me23MaineCounties,
+  me23MaineCounties.objects.cb_2015_maine_county_20m
+).features
+```
+
+```{ojs}
+md`This is Maine county data I've had for ages. I used Observable's FileAttachments vs pull remotely.`
+```
+
+```{ojs}
+me23MaineCounties = FileAttachment("ME-23-maine-counties-1.json").json()
+```
+
+```{ojs}
+md`To make the counties we need to draw paths. D3 has a nice `geoPath` function that takes in the projection we gave it. It will run that function on all points in the path to get the projected values.`
+```
+
+```{ojs}
+path = d3.geoPath(projection)
+```
+
+```{ojs}
+md`We'll use an [Albers](https://en.wikipedia.org/wiki/Albers_projection) projection of the U.S., up the scale and focus on Maine. `
+```
+
+```{ojs}
+projection = d3.geoAlbersUsa().scale(6000).translate([-1800, 1200])
+```
+
+```{ojs}
+md`Feel empowered to play with these to see what they do to the map.`
+```
+
+```{ojs}
+height = 500
+```
+
+```{ojs}
+width = 400
+```
+

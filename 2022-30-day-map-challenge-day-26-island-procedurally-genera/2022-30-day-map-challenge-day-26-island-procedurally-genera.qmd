@@ -1,0 +1,28 @@
+---
+title: '2022 30-day Map Challenge • Day 26 • Island • 🏝️ ☠️ Procedurally Generated Island Getaway'
+author: 'boB Rudis'
+format: html
+echo: false
+observable: 'https://observablehq.com/@hrbrmstr/2022-30-day-map-challenge-day-26-island-procedurally-genera'
+---
+
+```{ojs}
+md`# 2022 30-day Map Challenge • Day 26 • Island • 🏝️ ☠️ Procedurally Generated Island Getaway`
+```
+
+```{ojs}
+md`Today is another "no code" entry. 
+
+I'm a sucker for procedurally generated maps/landscapes/planets/star systems/galaxies/universes. It's a big reason I like to play No Man's Sky.
+
+One could burn many an hour on [Perilous Shores](https://watabou.itch.io/perilous-shores), a site where you can make procedurally generated islands. You can tweak tons of variables to make the map look just the way you want it to, and can keep generating new ones until you find one that captures your eye, or that fits a particular scenario you're working on in, say, a D&D campaign. 
+
+It seemed perfect for today's challenge. 
+
+Now, please excuse me while I go battle some undead in the Elder Cave.`
+```
+
+```{ojs}
+evisture_isle = FileAttachment("evisture_isle.svg").image()
+```
+
